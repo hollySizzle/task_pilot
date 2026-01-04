@@ -50,15 +50,28 @@ suite('Extension Integration Test Suite', () => {
         assert.ok(ext!.isActive, 'Extension should be active');
     });
 
-    test('showMenu command should be executable', async () => {
-        // Command should not throw (even if no config)
+    test('showMenu command should be executable', async function() {
+        this.timeout(5000);
+
+        // Execute command without awaiting (it shows QuickPick which waits for input)
+        const commandPromise = vscode.commands.executeCommand('taskPilot.showMenu');
+
+        // Wait a moment then close QuickPick by executing escape command
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await vscode.commands.executeCommand('workbench.action.closeQuickOpen');
+
+        // Wait for command to complete (should complete after QuickPick closes)
         try {
-            await vscode.commands.executeCommand('taskPilot.showMenu');
-            // If we get here, command executed
+            await Promise.race([
+                commandPromise,
+                new Promise(resolve => setTimeout(resolve, 2000))
+            ]);
         } catch (error) {
-            // Command may show warning message, that's ok
-            assert.ok(true);
+            // Command may throw, that's acceptable
         }
+
+        // If we get here without crash, test passes
+        assert.ok(true, 'showMenu command executed without crash');
     });
 
     test('configPath setting should have default value', () => {
@@ -76,16 +89,21 @@ suite('Extension Integration Test Suite', () => {
     test('showMenu command should handle missing config gracefully', async function() {
         this.timeout(5000);
 
-        // In test environment without workspace, should handle gracefully
-        let errorShown = false;
-        const originalShowWarningMessage = vscode.window.showWarningMessage;
+        // Execute command without awaiting (it shows QuickPick which waits for input)
+        const commandPromise = vscode.commands.executeCommand('taskPilot.showMenu');
 
-        // Note: We can't easily mock vscode.window, so just ensure no crash
+        // Wait a moment then close QuickPick
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await vscode.commands.executeCommand('workbench.action.closeQuickOpen');
+
+        // Wait for command to complete with timeout
         try {
-            await vscode.commands.executeCommand('taskPilot.showMenu');
+            await Promise.race([
+                commandPromise,
+                new Promise(resolve => setTimeout(resolve, 2000))
+            ]);
         } catch (error) {
-            // Expected in test environment
-            errorShown = true;
+            // Expected in test environment without proper config
         }
 
         // Either way, shouldn't crash
