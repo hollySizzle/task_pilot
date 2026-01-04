@@ -61,6 +61,11 @@
         "command": "taskPilot.refreshSidebar",
         "title": "TaskPilot: Refresh Sidebar",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "taskPilot.openEditor",
+        "title": "TaskPilot: Open Config Editor",
+        "icon": "$(edit)"
       }
     ],
     "keybindings": [

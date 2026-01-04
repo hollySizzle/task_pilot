@@ -8,6 +8,7 @@ import { ConfigManager } from './config-manager';
 import { ActionExecutor } from './action-executor';
 import { QuickPickMenu } from './quick-pick-menu';
 import { SidebarViewProvider } from './sidebar-view-provider';
+import { ConfigEditorPanel } from './config-editor-panel';
 
 /** ConfigManager インスタンス */
 let configManager: ConfigManager | undefined;
@@ -104,6 +105,18 @@ export function activate(context: vscode.ExtensionContext): void {
     });
 
     context.subscriptions.push(refreshSidebarCommand);
+
+    // Register openEditor command
+    const openEditorCommand = vscode.commands.registerCommand('taskPilot.openEditor', () => {
+        if (!configManager) {
+            vscode.window.showErrorMessage('TaskPilot: Extension not initialized');
+            return;
+        }
+
+        ConfigEditorPanel.createOrShow(context.extensionUri, configManager);
+    });
+
+    context.subscriptions.push(openEditorCommand);
 }
 
 /**
