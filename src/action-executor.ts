@@ -4,7 +4,7 @@
  */
 
 import * as vscode from 'vscode';
-import { ResolvedAction } from './types';
+import { ResolvedAction, MultipleActionOptions, MultipleActionResult, ActionError } from './types';
 
 /**
  * ActionExecutor - アクション実行クラス
@@ -122,6 +122,75 @@ export class ActionExecutor implements vscode.Disposable {
 
         // タスクを実行
         await vscode.tasks.executeTask(task);
+    }
+
+    /**
+     * 複数アクションを順次実行
+     */
+    async executeMultiple(
+        actions: ResolvedAction[],
+        options: MultipleActionOptions = {}
+    ): Promise<MultipleActionResult> {
+        const { continueOnError = false, cancellationToken, onProgress } = options;
+        const totalCount = actions.length;
+        let completedCount = 0;
+        const errors: ActionError[] = [];
+
+        // 空の配列の場合
+        if (totalCount === 0) {
+            return { success: true, completedCount: 0, totalCount: 0 };
+        }
+
+        for (let i = 0; i < actions.length; i++) {
+            // キャンセルチェック
+            if (cancellationToken?.isCancellationRequested) {
+                return {
+                    success: false,
+                    completedCount,
+                    totalCount,
+                    cancelled: true
+                };
+            }
+
+            const action = actions[i];
+
+            try {
+                await this.execute(action);
+                completedCount++;
+
+                // 進捗報告
+                if (onProgress) {
+                    onProgress(completedCount, totalCount, action);
+                }
+            } catch (error) {
+                const actionError: ActionError = {
+                    index: i,
+                    action,
+                    error: error instanceof Error ? error : new Error(String(error))
+                };
+
+                if (continueOnError) {
+                    // エラーを記録して続行
+                    errors.push(actionError);
+                } else {
+                    // 中断
+                    return {
+                        success: false,
+                        completedCount,
+                        totalCount,
+                        error: actionError.error,
+                        failedIndex: i
+                    };
+                }
+            }
+        }
+
+        return {
+            success: errors.length === 0,
+            completedCount,
+            totalCount,
+            errors: errors.length > 0 ? errors : undefined
+        };
     }
 
     /**

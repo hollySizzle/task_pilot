@@ -26,6 +26,26 @@ export interface CommandDefinition {
 }
 
 /**
+ * Action definition for multiple actions
+ */
+export interface ActionDefinition {
+    /** Reference to a command defined in commands section */
+    ref?: string;
+    /** Action type (when not using ref) */
+    type?: ActionType;
+    /** Command to execute (when not using ref) */
+    command?: string;
+    /** Terminal name (when type is terminal and not using ref) */
+    terminal?: string;
+    /** Command arguments (when type is vscodeCommand and not using ref) */
+    args?: unknown[];
+    /** Working directory (when type is terminal and not using ref) */
+    cwd?: string;
+    /** Description for this action */
+    description?: string;
+}
+
+/**
  * Menu item definition (recursive structure)
  */
 export interface MenuItem {
@@ -51,6 +71,12 @@ export interface MenuItem {
     args?: unknown[];
     /** Working directory (when type is terminal and not using ref) */
     cwd?: string;
+
+    // Multiple actions
+    /** Array of actions to execute sequentially */
+    actions?: ActionDefinition[];
+    /** Continue executing remaining actions even if one fails */
+    continueOnError?: boolean;
 }
 
 /**
@@ -117,4 +143,48 @@ export interface ValidationResult {
     valid: boolean;
     /** List of errors (empty if valid) */
     errors: ValidationError[];
+}
+
+/**
+ * Options for multiple action execution
+ */
+export interface MultipleActionOptions {
+    /** Continue executing remaining actions even if one fails */
+    continueOnError?: boolean;
+    /** Cancellation token to abort execution */
+    cancellationToken?: { isCancellationRequested: boolean };
+    /** Progress callback called after each action completes */
+    onProgress?: (current: number, total: number, action: ResolvedAction) => void;
+}
+
+/**
+ * Error info for multiple action execution
+ */
+export interface ActionError {
+    /** Index of the failed action */
+    index: number;
+    /** The action that failed */
+    action: ResolvedAction;
+    /** The error that occurred */
+    error: Error;
+}
+
+/**
+ * Result of multiple action execution
+ */
+export interface MultipleActionResult {
+    /** Whether all actions completed successfully */
+    success: boolean;
+    /** Number of successfully completed actions */
+    completedCount: number;
+    /** Total number of actions */
+    totalCount: number;
+    /** Whether execution was cancelled */
+    cancelled?: boolean;
+    /** Error that caused execution to stop (when continueOnError is false) */
+    error?: Error;
+    /** Index of failed action (when continueOnError is false) */
+    failedIndex?: number;
+    /** List of errors (when continueOnError is true) */
+    errors?: ActionError[];
 }

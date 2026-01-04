@@ -564,4 +564,160 @@ menu:
             assert.strictEqual(config.menu[0].children?.[0].ref, 'buildDev');
         });
     });
+
+    suite('Actions Array Validation', () => {
+
+        test('should accept MenuItem with actions array', () => {
+            const config = {
+                version: '1.0',
+                menu: [
+                    {
+                        label: 'Build & Test',
+                        actions: [
+                            { type: 'terminal', command: 'npm run build' },
+                            { type: 'terminal', command: 'npm test' }
+                        ]
+                    }
+                ]
+            };
+
+            const { result } = validateConfig(config);
+            assert.strictEqual(result.valid, true);
+        });
+
+        test('should accept actions with ref', () => {
+            const config = {
+                version: '1.0',
+                commands: {
+                    build: { type: 'terminal', command: 'npm run build' }
+                },
+                menu: [
+                    {
+                        label: 'Build & Test',
+                        actions: [
+                            { ref: 'build' },
+                            { type: 'terminal', command: 'npm test' }
+                        ]
+                    }
+                ]
+            };
+
+            const { result } = validateConfig(config);
+            assert.strictEqual(result.valid, true);
+        });
+
+        test('should accept continueOnError option', () => {
+            const config = {
+                version: '1.0',
+                menu: [
+                    {
+                        label: 'Build All',
+                        continueOnError: true,
+                        actions: [
+                            { type: 'terminal', command: 'npm run build:a' },
+                            { type: 'terminal', command: 'npm run build:b' }
+                        ]
+                    }
+                ]
+            };
+
+            const { result } = validateConfig(config);
+            assert.strictEqual(result.valid, true);
+        });
+
+        test('should reject actions that is not an array', () => {
+            const config = {
+                version: '1.0',
+                menu: [
+                    {
+                        label: 'Invalid',
+                        actions: 'not-an-array'
+                    }
+                ]
+            };
+
+            const { result } = validateConfig(config);
+            assert.strictEqual(result.valid, false);
+            assert.ok(result.errors.some(e => e.message.includes('"actions" must be an array')));
+        });
+
+        test('should reject action without type or ref', () => {
+            const config = {
+                version: '1.0',
+                menu: [
+                    {
+                        label: 'Invalid',
+                        actions: [
+                            { command: 'npm run build' }
+                        ]
+                    }
+                ]
+            };
+
+            const { result } = validateConfig(config);
+            assert.strictEqual(result.valid, false);
+            assert.ok(result.errors.some(e => e.message.includes('Missing "type" or "ref"')));
+        });
+
+        test('should reject action with invalid type', () => {
+            const config = {
+                version: '1.0',
+                menu: [
+                    {
+                        label: 'Invalid',
+                        actions: [
+                            { type: 'invalidType', command: 'npm run build' }
+                        ]
+                    }
+                ]
+            };
+
+            const { result } = validateConfig(config);
+            assert.strictEqual(result.valid, false);
+            assert.ok(result.errors.some(e => e.message.includes('"type" must be one of')));
+        });
+
+        test('should reject continueOnError that is not boolean', () => {
+            const config = {
+                version: '1.0',
+                menu: [
+                    {
+                        label: 'Invalid',
+                        continueOnError: 'yes',
+                        actions: [
+                            { type: 'terminal', command: 'npm run build' }
+                        ]
+                    }
+                ]
+            };
+
+            const { result } = validateConfig(config);
+            assert.strictEqual(result.valid, false);
+            assert.ok(result.errors.some(e => e.message.includes('"continueOnError" must be a boolean')));
+        });
+
+        test('should parse actions array from YAML', () => {
+            const yaml = `
+version: '1.0'
+commands:
+  lint:
+    type: terminal
+    command: npm run lint
+menu:
+  - label: Full Build
+    continueOnError: false
+    actions:
+      - type: terminal
+        command: npm run build
+      - ref: lint
+      - type: terminal
+        command: npm test
+`;
+            const config = parseMenuConfig(yaml);
+            assert.strictEqual(config.menu[0].actions?.length, 3);
+            assert.strictEqual(config.menu[0].actions?.[0].type, 'terminal');
+            assert.strictEqual(config.menu[0].actions?.[1].ref, 'lint');
+            assert.strictEqual(config.menu[0].continueOnError, false);
+        });
+    });
 });

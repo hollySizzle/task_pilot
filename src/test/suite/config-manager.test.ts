@@ -300,6 +300,137 @@ suite('ConfigManager Test Suite', () => {
             });
         });
     });
+
+    suite('resolveActions - 複数アクション解決', () => {
+
+        test('should resolve single action when no actions array', () => {
+            const manager = new ConfigManager();
+            const config: MenuConfig = {
+                version: '1.0',
+                menu: []
+            };
+            (manager as unknown as { config: MenuConfig }).config = config;
+
+            const item: MenuItem = {
+                label: 'Build',
+                type: 'terminal',
+                command: 'npm run build'
+            };
+
+            const actions = manager.resolveActions(item);
+            assert.ok(actions !== null);
+            assert.strictEqual(actions!.length, 1);
+            assert.strictEqual(actions![0].command, 'npm run build');
+        });
+
+        test('should resolve multiple actions from actions array', () => {
+            const manager = new ConfigManager();
+            const config: MenuConfig = {
+                version: '1.0',
+                menu: [],
+                commands: {
+                    lint: { type: 'terminal', command: 'npm run lint' }
+                }
+            };
+            (manager as unknown as { config: MenuConfig }).config = config;
+
+            const item: MenuItem = {
+                label: 'Build & Test',
+                actions: [
+                    { type: 'terminal', command: 'npm run build' },
+                    { ref: 'lint' },
+                    { type: 'terminal', command: 'npm test' }
+                ]
+            };
+
+            const actions = manager.resolveActions(item);
+            assert.ok(actions !== null);
+            assert.strictEqual(actions!.length, 3);
+            assert.strictEqual(actions![0].command, 'npm run build');
+            assert.strictEqual(actions![1].command, 'npm run lint');
+            assert.strictEqual(actions![2].command, 'npm test');
+        });
+
+        test('should return null for item without any action', () => {
+            const manager = new ConfigManager();
+            const config: MenuConfig = {
+                version: '1.0',
+                menu: []
+            };
+            (manager as unknown as { config: MenuConfig }).config = config;
+
+            const item: MenuItem = {
+                label: 'No Action'
+            };
+
+            const actions = manager.resolveActions(item);
+            assert.strictEqual(actions, null);
+        });
+
+        test('should skip invalid actions in array', () => {
+            const manager = new ConfigManager();
+            const config: MenuConfig = {
+                version: '1.0',
+                menu: []
+            };
+            (manager as unknown as { config: MenuConfig }).config = config;
+
+            const item: MenuItem = {
+                label: 'Mixed',
+                actions: [
+                    { type: 'terminal', command: 'npm run build' },
+                    { ref: 'nonexistent' },
+                    { type: 'terminal', command: 'npm test' }
+                ]
+            };
+
+            const actions = manager.resolveActions(item);
+            assert.ok(actions !== null);
+            assert.strictEqual(actions!.length, 2);
+        });
+    });
+
+    suite('hasMultipleActions', () => {
+
+        test('should return true for item with multiple actions', () => {
+            const manager = new ConfigManager();
+
+            const item: MenuItem = {
+                label: 'Multi',
+                actions: [
+                    { type: 'terminal', command: 'npm run build' },
+                    { type: 'terminal', command: 'npm test' }
+                ]
+            };
+
+            assert.strictEqual(manager.hasMultipleActions(item), true);
+        });
+
+        test('should return false for item with single action in array', () => {
+            const manager = new ConfigManager();
+
+            const item: MenuItem = {
+                label: 'Single',
+                actions: [
+                    { type: 'terminal', command: 'npm run build' }
+                ]
+            };
+
+            assert.strictEqual(manager.hasMultipleActions(item), false);
+        });
+
+        test('should return false for item without actions array', () => {
+            const manager = new ConfigManager();
+
+            const item: MenuItem = {
+                label: 'No Actions',
+                type: 'terminal',
+                command: 'npm run build'
+            };
+
+            assert.strictEqual(manager.hasMultipleActions(item), false);
+        });
+    });
 });
 
 /**
