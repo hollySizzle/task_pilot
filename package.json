@@ -34,6 +34,17 @@
       {
         "command": "taskPilot.showMenu",
         "title": "TaskPilot: Show Menu"
+      },
+      {
+        "command": "taskPilot.reloadConfig",
+        "title": "TaskPilot: Reload Configuration"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "taskPilot.showMenu",
+        "key": "ctrl+shift+t",
+        "mac": "cmd+shift+t"
       }
     ],
     "configuration": {

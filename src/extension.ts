@@ -1,14 +1,32 @@
+/**
+ * TaskPilot Extension
+ * 階層型タスクメニューを提供するVS Code拡張機能
+ */
+
 import * as vscode from 'vscode';
 import { ConfigManager } from './config-manager';
+import { ActionExecutor } from './action-executor';
+import { QuickPickMenu } from './quick-pick-menu';
 
+/** ConfigManager インスタンス */
 let configManager: ConfigManager | undefined;
 
-export function activate(context: vscode.ExtensionContext) {
+/** ActionExecutor インスタンス */
+let actionExecutor: ActionExecutor | undefined;
+
+/**
+ * 拡張機能のアクティベート
+ */
+export function activate(context: vscode.ExtensionContext): void {
     console.log('TaskPilot extension is now active');
 
     // Initialize ConfigManager
     configManager = new ConfigManager();
     context.subscriptions.push(configManager);
+
+    // Initialize ActionExecutor
+    actionExecutor = new ActionExecutor();
+    context.subscriptions.push(actionExecutor);
 
     // Listen for config changes
     configManager.onConfigChanged(event => {
@@ -26,7 +44,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Register showMenu command
     const showMenuCommand = vscode.commands.registerCommand('taskPilot.showMenu', async () => {
-        if (!configManager) {
+        if (!configManager || !actionExecutor) {
             vscode.window.showErrorMessage('TaskPilot: Extension not initialized');
             return;
         }
@@ -34,18 +52,114 @@ export function activate(context: vscode.ExtensionContext) {
         const config = configManager.getConfig();
         if (!config) {
             const configPath = configManager.getConfigPath();
-            vscode.window.showWarningMessage(
-                `TaskPilot: No configuration found. Create ${configPath || '.vscode/task-menu.yaml'} to get started.`
+            const action = await vscode.window.showWarningMessage(
+                `TaskPilot: No configuration found. Create ${configPath || '.vscode/task-menu.yaml'} to get started.`,
+                'Create Sample'
             );
+
+            if (action === 'Create Sample') {
+                await createSampleConfig(configPath);
+            }
             return;
         }
 
-        vscode.window.showInformationMessage(`TaskPilot: Loaded config v${config.version} with ${config.menu.length} menu items`);
+        // Show the menu
+        await QuickPickMenu.show(configManager, actionExecutor);
     });
 
     context.subscriptions.push(showMenuCommand);
+
+    // Register reload command
+    const reloadCommand = vscode.commands.registerCommand('taskPilot.reloadConfig', async () => {
+        if (configManager) {
+            await configManager.reloadConfig();
+            vscode.window.showInformationMessage('TaskPilot: Configuration reloaded');
+        }
+    });
+
+    context.subscriptions.push(reloadCommand);
 }
 
-export function deactivate() {
+/**
+ * サンプル設定ファイルを作成
+ */
+async function createSampleConfig(configPath: string | null): Promise<void> {
+    if (!configPath) {
+        vscode.window.showErrorMessage('TaskPilot: Cannot create config file - no workspace folder open');
+        return;
+    }
+
+    const sampleConfig = `# TaskPilot Configuration
+version: "1.0"
+
+# Reusable command definitions
+commands:
+  build:
+    type: terminal
+    command: npm run build
+    description: Build the project
+  test:
+    type: terminal
+    command: npm test
+    description: Run tests
+  lint:
+    type: terminal
+    command: npm run lint
+    description: Run linter
+
+# Menu structure
+menu:
+  - label: Development
+    icon: "$(tools)"
+    children:
+      - label: Build
+        icon: "$(package)"
+        ref: build
+      - label: Test
+        icon: "$(beaker)"
+        ref: test
+      - label: Lint
+        icon: "$(checklist)"
+        ref: lint
+
+  - label: Git
+    icon: "$(git-branch)"
+    children:
+      - label: Pull
+        icon: "$(cloud-download)"
+        type: terminal
+        command: git pull
+      - label: Push
+        icon: "$(cloud-upload)"
+        type: terminal
+        command: git push
+      - label: Status
+        icon: "$(info)"
+        type: terminal
+        command: git status
+
+  - label: Open Settings
+    icon: "$(gear)"
+    type: vscodeCommand
+    command: workbench.action.openSettings
+`;
+
+    try {
+        const uri = vscode.Uri.file(configPath);
+        await vscode.workspace.fs.writeFile(uri, Buffer.from(sampleConfig, 'utf-8'));
+        const doc = await vscode.workspace.openTextDocument(uri);
+        await vscode.window.showTextDocument(doc);
+        vscode.window.showInformationMessage('TaskPilot: Sample configuration created');
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        vscode.window.showErrorMessage(`TaskPilot: Failed to create config file: ${message}`);
+    }
+}
+
+/**
+ * 拡張機能のディアクティベート
+ */
+export function deactivate(): void {
     configManager = undefined;
+    actionExecutor = undefined;
 }
