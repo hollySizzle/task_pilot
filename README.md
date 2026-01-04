@@ -1,28 +1,18 @@
-# Redmine Epic Ladder
+# TaskPilot
 
-VS Code extension for Redmine ticket management with hierarchical Epic/Feature/UserStory view.
+Hierarchical task menu for VS Code - execute terminal commands, VS Code commands, and tasks from YAML configuration.
 
 ## Features
 
-- **Epic Ladder View**: Visualize your project structure with Epic > Feature > UserStory > Task/Bug/Test hierarchy
-- **Tree View**: Browse Redmine issues in a tree structure
-- **Issue Details**: View ticket details including status, assignee, priority, and description
-- **Quick Actions**:
-  - Add comments to issues
-  - Change issue status
-  - Open issues in browser
-- **Filtering**: Filter issues by version, status, and assignee
-- **Version Management**: View issues organized by sprint/version
-
-## Requirements
-
-This extension requires a running Redmine MCP Server. The MCP Server provides the bridge between VS Code and your Redmine instance.
-
-### Setting up the MCP Server
-
-1. Clone and set up the [redmine-epic-grid](https://github.com/hollySizzle/redmine-epic-grid) MCP server
-2. Configure the MCP server with your Redmine URL and API key
-3. Start the MCP server
+- **Hierarchical Menu**: Organize commands in a tree structure with unlimited depth
+- **Quick Pick UI**: Fast keyboard-driven interface
+- **Multiple Action Types**:
+  - Terminal commands (with named terminals)
+  - VS Code commands (with arguments)
+  - tasks.json tasks
+- **YAML Configuration**: Easy-to-edit configuration file
+- **Command Reuse**: Define commands once, reference from multiple menus (`ref` feature)
+- **Auto Reload**: Configuration changes are automatically detected
 
 ## Installation
 
@@ -30,83 +20,180 @@ This extension requires a running Redmine MCP Server. The MCP Server provides th
 
 1. Open VS Code
 2. Go to Extensions (Ctrl+Shift+X / Cmd+Shift+X)
-3. Search for "Redmine Epic Ladder"
+3. Search for "TaskPilot"
 4. Click Install
 
 ### Manual Installation
 
-1. Download the `.vsix` file from [Releases](https://github.com/hollySizzle/epic_ladder_for_vsc/releases)
+1. Download the `.vsix` file from [Releases](https://github.com/hollySizzle/task_pilot/releases)
 2. In VS Code, open Command Palette (Ctrl+Shift+P / Cmd+Shift+P)
 3. Run "Extensions: Install from VSIX..."
 4. Select the downloaded `.vsix` file
 
-## Configuration
+## Quick Start
 
-Configure the extension in VS Code Settings:
+1. Create `.vscode/task-menu.yaml` in your workspace:
 
-```json
-{
-  "redmine.url": "https://your-redmine-server.com",
-  "redmine.apiKey": "your-api-key",
-  "redmine.defaultProject": "your-project-identifier"
-}
+```yaml
+version: "1.0"
+
+menu:
+  - label: Build
+    icon: "$(tools)"
+    type: terminal
+    command: npm run build
+
+  - label: Development
+    icon: "$(rocket)"
+    children:
+      - label: Start Server
+        icon: "$(play)"
+        type: terminal
+        terminal: dev
+        command: npm run dev
+
+      - label: Run Tests
+        icon: "$(beaker)"
+        type: terminal
+        command: npm test
 ```
+
+2. Press `Cmd+Shift+T` (Mac) or `Ctrl+Shift+T` (Windows/Linux)
+3. Select a menu item to execute
+
+## Configuration
 
 ### Settings
 
-| Setting | Description | Required |
-|---------|-------------|----------|
-| `redmine.url` | Redmine server URL | Yes |
-| `redmine.apiKey` | Redmine API key | Yes |
-| `redmine.defaultProject` | Default project identifier | No |
+| Setting | Description | Default |
+|---------|-------------|---------|
+| `taskPilot.configPath` | Path to YAML config file | `.vscode/task-menu.yaml` |
 
-### Getting Your API Key
+### YAML Schema
 
-1. Log in to your Redmine instance
-2. Go to My Account (top right menu)
-3. Click "Show" under API access key on the right sidebar
-4. Copy the API key
+```yaml
+version: "1.0"
 
-## Usage
+# Reusable command definitions
+commands:
+  command_id:
+    type: terminal | vscodeCommand | task
+    command: string          # Command to execute
+    terminal: string         # Terminal name (for type: terminal)
+    args: array              # Command arguments
+    cwd: string              # Working directory
+    description: string      # Description
 
-### Opening Epic Ladder View
+# Menu structure
+menu:
+  - label: string            # Display name (required)
+    icon: string             # Icon (emoji or codicon)
+    description: string      # Description text
+    children: []             # Sub-menu items (for categories)
 
-1. Click the Redmine icon in the Activity Bar (left sidebar)
-2. Click the tree icon in the view title bar to open Epic Ladder
+    # Action (one of the following)
+    ref: string              # Reference to commands section
+    type: terminal | vscodeCommand | task
+    command: string
+```
 
-### Viewing Issue Details
+### Example: Full Configuration
 
-- Click on any issue in the tree view or Epic Ladder to see its details
-- Use the popup panel to view comments, add new comments, or change status
+```yaml
+version: "1.0"
 
-### Filtering Issues
+commands:
+  start_server:
+    type: terminal
+    terminal: Server
+    command: npm run dev
+    description: Start development server
 
-In the Epic Ladder view:
-- Select a Version/Sprint to filter by release
-- Toggle status filters (Open/Closed)
-- Filter by assignee
+  rebuild_container:
+    type: vscodeCommand
+    command: remote-containers.rebuildContainer
+    description: Rebuild dev container
+
+menu:
+  - label: Development
+    icon: "$(rocket)"
+    children:
+      - label: Start Server
+        icon: "$(play)"
+        ref: start_server
+
+      - label: Run Tests
+        icon: "$(beaker)"
+        type: terminal
+        command: npm test
+
+  - label: Container
+    icon: "$(package)"
+    children:
+      - label: Rebuild
+        icon: "$(refresh)"
+        ref: rebuild_container
+
+  - label: Troubleshooting
+    icon: "$(tools)"
+    children:
+      - label: Server Issues
+        children:
+          - label: Restart Server
+            ref: start_server  # Same command, different context
+```
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `Redmine: Refresh` | Refresh the issue list |
-| `Redmine: Open Issue Details` | Open issue by entering ID |
-| `Redmine: Configure Redmine Connection` | Open settings |
-| `Redmine: Show Epic Ladder` | Open the Epic Ladder view |
+| Command | Description | Shortcut |
+|---------|-------------|----------|
+| `TaskPilot: Show Menu` | Open the task menu | Cmd+Shift+T / Ctrl+Shift+T |
+| `TaskPilot: Reload Configuration` | Reload YAML config | - |
 
-## Project Structure
+## Action Types
 
-This extension follows the Epic > Feature > UserStory > Task/Bug/Test hierarchy:
+### Terminal
 
+Execute commands in VS Code's integrated terminal:
+
+```yaml
+- label: Build Project
+  type: terminal
+  command: npm run build
+  terminal: Build      # Optional: named terminal
+  cwd: ./packages/app  # Optional: working directory
 ```
-Epic (Large initiative)
-  └── Feature (Grouping)
-        └── UserStory (User requirement)
-              ├── Task (Implementation work)
-              ├── Bug (Defect)
-              └── Test (Verification)
+
+### VS Code Command
+
+Execute VS Code commands:
+
+```yaml
+- label: Format Document
+  type: vscodeCommand
+  command: editor.action.formatDocument
+
+- label: Open Folder
+  type: vscodeCommand
+  command: vscode.openFolder
+  args:
+    - /path/to/folder
 ```
+
+### Task
+
+Execute tasks defined in tasks.json:
+
+```yaml
+- label: Run Build Task
+  type: task
+  command: build  # Task name from tasks.json
+```
+
+## Requirements
+
+- VS Code 1.85.0 or higher
+- Node.js 18.x or higher (for development)
 
 ## License
 
@@ -122,32 +209,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## Development
-
-### Publishing to Marketplace
-
-This extension uses GitHub Actions for automated publishing. When a version tag is pushed, the extension is automatically published to the VS Code Marketplace.
-
-#### Setup
-
-1. Create a Personal Access Token (PAT) in [Azure DevOps](https://dev.azure.com/)
-   - Organization: `All accessible organizations`
-   - Scope: `Marketplace > Manage`
-2. Add the PAT as a secret named `VSCE_PAT` in the GitHub repository settings
-
-#### Publishing a New Version
-
-1. Update `version` in `package.json`
-2. Commit the changes
-3. Create and push a version tag:
-
-```bash
-git tag v0.1.3
-git push origin v0.1.3
-```
-
-The GitHub Action will automatically build and publish the extension.
-
 ## Support
 
-- [GitHub Issues](https://github.com/hollySizzle/epic_ladder_for_vsc/issues)
+- [GitHub Issues](https://github.com/hollySizzle/task_pilot/issues)
