@@ -54,8 +54,8 @@ export class QuickPickMenu {
         if (item.children && item.children.length > 0) {
             return false;
         }
-        // refまたはtype+commandがあればアクション可能
-        return !!(item.ref || (item.type && item.command));
+        // actions配列、refまたはtype+commandがあればアクション可能
+        return !!(item.actions || item.ref || (item.type && item.command));
     }
 
     /**
@@ -131,14 +131,58 @@ export class QuickPickMenu {
         }
 
         // アクション実行
-        const action = configManager.resolveAction(menuItem);
-        if (action) {
+        const actions = configManager.resolveActions(menuItem);
+        if (actions && actions.length > 0) {
+            await this.executeActions(actionExecutor, actions, menuItem);
+        }
+    }
+
+    /**
+     * アクションを実行（単一/複数対応）
+     */
+    private static async executeActions(
+        actionExecutor: ActionExecutor,
+        actions: ResolvedAction[],
+        menuItem: MenuItem
+    ): Promise<void> {
+        if (actions.length === 1) {
+            // 単一アクション
             try {
-                await actionExecutor.execute(action);
+                await actionExecutor.execute(actions[0]);
             } catch (error) {
                 const message = error instanceof Error ? error.message : String(error);
                 vscode.window.showErrorMessage(`TaskPilot: ${message}`);
             }
+        } else {
+            // 複数アクション - 進捗表示
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: `TaskPilot: ${menuItem.label}`,
+                cancellable: true
+            }, async (progress, token) => {
+                const result = await actionExecutor.executeMultiple(actions, {
+                    continueOnError: menuItem.continueOnError ?? false,
+                    cancellationToken: token,
+                    onProgress: (current, total, action) => {
+                        progress.report({
+                            increment: 100 / total,
+                            message: `(${current}/${total}) ${action.description || action.command}`
+                        });
+                    }
+                });
+
+                if (result.cancelled) {
+                    vscode.window.showWarningMessage(`TaskPilot: Execution cancelled (${result.completedCount}/${result.totalCount} completed)`);
+                } else if (!result.success) {
+                    if (result.error) {
+                        vscode.window.showErrorMessage(`TaskPilot: ${result.error.message} (at step ${(result.failedIndex ?? 0) + 1})`);
+                    } else if (result.errors && result.errors.length > 0) {
+                        vscode.window.showWarningMessage(`TaskPilot: Completed with ${result.errors.length} error(s)`);
+                    }
+                } else {
+                    vscode.window.showInformationMessage(`TaskPilot: All ${result.totalCount} actions completed`);
+                }
+            });
         }
     }
 

@@ -186,4 +186,104 @@ suite('ActionExecutor Test Suite', () => {
             }
         });
     });
+
+    suite('Multiple Actions Sequential Execution', () => {
+        test('should execute multiple actions sequentially', async () => {
+            const actions: ResolvedAction[] = [
+                { type: 'terminal', command: 'echo "first"', terminal: 'SeqTest' },
+                { type: 'terminal', command: 'echo "second"', terminal: 'SeqTest' }
+            ];
+
+            const result = await executor.executeMultiple(actions);
+
+            assert.ok(result.success, 'All actions should succeed');
+            assert.strictEqual(result.completedCount, 2, 'Should complete 2 actions');
+            assert.strictEqual(result.totalCount, 2, 'Total count should be 2');
+        });
+
+        test('should report progress via callback', async () => {
+            const actions: ResolvedAction[] = [
+                { type: 'terminal', command: 'echo "a"', terminal: 'ProgressTest' },
+                { type: 'terminal', command: 'echo "b"', terminal: 'ProgressTest' }
+            ];
+
+            const progressReports: { current: number; total: number; action: ResolvedAction }[] = [];
+
+            await executor.executeMultiple(actions, {
+                onProgress: (current, total, action) => {
+                    progressReports.push({ current, total, action });
+                }
+            });
+
+            assert.strictEqual(progressReports.length, 2, 'Should report progress twice');
+            assert.strictEqual(progressReports[0].current, 1, 'First report should be 1');
+            assert.strictEqual(progressReports[1].current, 2, 'Second report should be 2');
+        });
+
+        test('should stop on error by default', async () => {
+            const actions: ResolvedAction[] = [
+                { type: 'terminal', command: 'echo "ok"', terminal: 'StopTest' },
+                { type: 'vscodeCommand', command: 'nonexistent.command.xyz' },
+                { type: 'terminal', command: 'echo "should not run"', terminal: 'StopTest' }
+            ];
+
+            const result = await executor.executeMultiple(actions);
+
+            assert.strictEqual(result.success, false, 'Should fail');
+            assert.strictEqual(result.completedCount, 1, 'Only first action should complete');
+            assert.ok(result.error, 'Should have error');
+            assert.strictEqual(result.failedIndex, 1, 'Should fail at index 1');
+        });
+
+        test('should continue on error when continueOnError is true', async () => {
+            const actions: ResolvedAction[] = [
+                { type: 'terminal', command: 'echo "first"', terminal: 'ContinueTest' },
+                { type: 'vscodeCommand', command: 'nonexistent.command.xyz' },
+                { type: 'terminal', command: 'echo "third"', terminal: 'ContinueTest' }
+            ];
+
+            const result = await executor.executeMultiple(actions, {
+                continueOnError: true
+            });
+
+            assert.strictEqual(result.success, false, 'Overall should be false due to error');
+            assert.strictEqual(result.completedCount, 2, 'Should complete 2 actions (skipping failed)');
+            assert.ok(result.errors, 'Should have errors array');
+            assert.strictEqual(result.errors!.length, 1, 'Should have 1 error');
+        });
+
+        test('should handle empty actions array', async () => {
+            const result = await executor.executeMultiple([]);
+
+            assert.strictEqual(result.success, true, 'Should succeed with no actions');
+            assert.strictEqual(result.completedCount, 0, 'Should complete 0 actions');
+            assert.strictEqual(result.totalCount, 0, 'Total count should be 0');
+        });
+
+        test('should handle cancellation', async () => {
+            const actions: ResolvedAction[] = [
+                { type: 'terminal', command: 'echo "1"', terminal: 'CancelTest' },
+                { type: 'terminal', command: 'echo "2"', terminal: 'CancelTest' },
+                { type: 'terminal', command: 'echo "3"', terminal: 'CancelTest' }
+            ];
+
+            const cancellationTokenSource = new vscode.CancellationTokenSource();
+            let progressCount = 0;
+
+            const resultPromise = executor.executeMultiple(actions, {
+                cancellationToken: cancellationTokenSource.token,
+                onProgress: () => {
+                    progressCount++;
+                    if (progressCount === 1) {
+                        cancellationTokenSource.cancel();
+                    }
+                }
+            });
+
+            const result = await resultPromise;
+
+            assert.strictEqual(result.cancelled, true, 'Should be cancelled');
+            assert.strictEqual(result.completedCount, 1, 'Should complete only 1 action before cancel');
+        });
+    });
 });

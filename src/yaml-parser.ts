@@ -128,11 +128,82 @@ function validateMenuItems(items: unknown[], path: string, errors: ValidationErr
             } else {
                 validateMenuItems(menuItem.children, `${itemPath}.children`, errors);
             }
+        } else if (menuItem.actions !== undefined) {
+            // Multiple actions
+            if (!Array.isArray(menuItem.actions)) {
+                errors.push({ message: '"actions" must be an array', path: `${itemPath}.actions` });
+            } else {
+                validateActionsArray(menuItem.actions, `${itemPath}.actions`, errors);
+            }
+            // continueOnError validation
+            if (menuItem.continueOnError !== undefined && typeof menuItem.continueOnError !== 'boolean') {
+                errors.push({ message: '"continueOnError" must be a boolean', path: `${itemPath}.continueOnError` });
+            }
         } else {
             // Must have ref or (type + command)
             validateAction(menuItem, itemPath, errors);
         }
     });
+}
+
+/**
+ * actions配列を検証
+ */
+function validateActionsArray(actions: unknown[], path: string, errors: ValidationError[]): void {
+    actions.forEach((action, index) => {
+        const actionPath = `${path}[${index}]`;
+
+        if (!action || typeof action !== 'object') {
+            errors.push({ message: 'Action must be an object', path: actionPath });
+            return;
+        }
+
+        const actionDef = action as Record<string, unknown>;
+        validateActionDefinition(actionDef, actionPath, errors);
+    });
+}
+
+/**
+ * 個別のアクション定義を検証（actions配列内の要素用）
+ */
+function validateActionDefinition(item: Record<string, unknown>, path: string, errors: ValidationError[]): void {
+    if (item.ref !== undefined) {
+        if (typeof item.ref !== 'string') {
+            errors.push({ message: '"ref" must be a string', path: `${path}.ref` });
+        }
+        return;
+    }
+
+    // ref がない場合は type と command が必要
+    if (!item.type) {
+        errors.push({ message: 'Missing "type" or "ref" for action', path: `${path}.type` });
+    } else if (!isValidActionType(item.type)) {
+        errors.push({
+            message: '"type" must be one of: terminal, vscodeCommand, task',
+            path: `${path}.type`
+        });
+    }
+
+    if (!item.command || typeof item.command !== 'string') {
+        errors.push({ message: 'Missing or invalid "command" field', path: `${path}.command` });
+    }
+
+    // terminal-specific validation
+    if (item.type === 'terminal') {
+        if (item.terminal !== undefined && typeof item.terminal !== 'string') {
+            errors.push({ message: '"terminal" must be a string', path: `${path}.terminal` });
+        }
+        if (item.cwd !== undefined && typeof item.cwd !== 'string') {
+            errors.push({ message: '"cwd" must be a string', path: `${path}.cwd` });
+        }
+    }
+
+    // vscodeCommand-specific validation
+    if (item.type === 'vscodeCommand') {
+        if (item.args !== undefined && !Array.isArray(item.args)) {
+            errors.push({ message: '"args" must be an array', path: `${path}.args` });
+        }
+    }
 }
 
 /**

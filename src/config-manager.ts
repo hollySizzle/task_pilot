@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { parseMenuConfig, YamlParseError } from './yaml-parser';
-import { MenuConfig, MenuItem, ResolvedAction, CommandDefinition } from './types';
+import { MenuConfig, MenuItem, ResolvedAction, CommandDefinition, ActionDefinition } from './types';
 
 /**
  * 設定変更イベントの型
@@ -227,6 +227,64 @@ export class ConfigManager implements vscode.Disposable {
             cwd: cmd.cwd,
             description: cmd.description
         };
+    }
+
+    /**
+     * メニューアイテムの複数アクションを解決
+     * actions配列がある場合はそれを解決して返す
+     */
+    resolveActions(item: MenuItem): ResolvedAction[] | null {
+        if (!item.actions || item.actions.length === 0) {
+            // 単一アクションの場合
+            const action = this.resolveAction(item);
+            return action ? [action] : null;
+        }
+
+        const resolved: ResolvedAction[] = [];
+        for (const actionDef of item.actions) {
+            const action = this.resolveActionDefinition(actionDef);
+            if (action) {
+                resolved.push(action);
+            }
+        }
+
+        return resolved.length > 0 ? resolved : null;
+    }
+
+    /**
+     * ActionDefinitionをResolvedActionに変換
+     */
+    private resolveActionDefinition(actionDef: ActionDefinition): ResolvedAction | null {
+        if (actionDef.ref) {
+            // ref参照を解決
+            const command = this.config?.commands?.[actionDef.ref];
+            if (!command) {
+                vscode.window.showErrorMessage(`TaskPilot: Unknown command reference "${actionDef.ref}"`);
+                return null;
+            }
+            return this.commandToAction(command);
+        }
+
+        if (actionDef.type && actionDef.command) {
+            // インラインアクション
+            return {
+                type: actionDef.type,
+                command: actionDef.command,
+                terminal: actionDef.terminal,
+                args: actionDef.args,
+                cwd: actionDef.cwd,
+                description: actionDef.description
+            };
+        }
+
+        return null;
+    }
+
+    /**
+     * メニューアイテムが複数アクションを持つかどうかを判定
+     */
+    hasMultipleActions(item: MenuItem): boolean {
+        return !!item.actions && item.actions.length > 1;
     }
 
     /**
