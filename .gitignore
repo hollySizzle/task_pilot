@@ -10,3 +10,5 @@ tmp/**
 !.gitkeep
 coverage/
 test-workspace/
+.c8_output/
+.jest_output/
