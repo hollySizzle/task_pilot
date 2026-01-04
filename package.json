@@ -30,6 +30,24 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "taskPilot",
+          "title": "TaskPilot",
+          "icon": "resources/taskpilot-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "taskPilot": [
+        {
+          "type": "webview",
+          "id": "taskPilot.sidebarView",
+          "name": "Menu"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "taskPilot.showMenu",
@@ -38,6 +56,11 @@
       {
         "command": "taskPilot.reloadConfig",
         "title": "TaskPilot: Reload Configuration"
+      },
+      {
+        "command": "taskPilot.refreshSidebar",
+        "title": "TaskPilot: Refresh Sidebar",
+        "icon": "$(refresh)"
       }
     ],
     "keybindings": [
