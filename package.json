@@ -1,160 +1,82 @@
 {
-  "name": "redmine-epic-ladder",
-  "displayName": "Redmine Epic Ladder",
-  "description": "VS Code extension for Redmine ticket management with hierarchical Epic/Feature/UserStory view",
-  "version": "0.1.28",
+  "name": "task-pilot",
+  "displayName": "TaskPilot",
+  "description": "Hierarchical task menu for VS Code - execute terminal commands, VS Code commands, and tasks from YAML configuration",
+  "version": "0.1.0",
   "publisher": "hollySizzle",
   "license": "MIT",
   "icon": "resources/icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/hollySizzle/epic_ladder_for_vsc.git"
+    "url": "https://github.com/hollySizzle/task_pilot.git"
   },
-  "homepage": "https://github.com/hollySizzle/epic_ladder_for_vsc#readme",
+  "homepage": "https://github.com/hollySizzle/task_pilot#readme",
   "bugs": {
-    "url": "https://github.com/hollySizzle/epic_ladder_for_vsc/issues"
+    "url": "https://github.com/hollySizzle/task_pilot/issues"
   },
   "keywords": [
-    "redmine",
-    "epic",
-    "ticket",
-    "issue",
-    "project management",
-    "agile"
+    "task",
+    "menu",
+    "terminal",
+    "command",
+    "automation",
+    "workflow"
   ],
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": [
-    "Other",
-    "Visualization"
-  ],
-  "activationEvents": [
-    "onView:redmineIssues",
-    "onCommand:redmine.showEpicLadder",
-    "onCommand:redmine.refresh",
-    "onCommand:redmine.openIssue",
-    "onCommand:redmine.openIssueById",
-    "onCommand:redmine.configure"
+    "Other"
   ],
   "main": "./dist/extension.js",
   "contributes": {
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "redmine-explorer",
-          "title": "Epic Ladder",
-          "icon": "resources/redmine.svg"
-        }
-      ]
-    },
-    "views": {
-      "redmine-explorer": [
-        {
-          "id": "redmineIssues",
-          "name": "Issues",
-          "icon": "resources/redmine.svg"
-        }
-      ]
-    },
     "commands": [
       {
-        "command": "redmine.refresh",
-        "title": "Refresh",
-        "icon": "$(refresh)"
-      },
-      {
-        "command": "redmine.openIssue",
-        "title": "Open Issue Details"
-      },
-      {
-        "command": "redmine.openIssueById",
-        "title": "Open Issue by ID"
-      },
-      {
-        "command": "redmine.configure",
-        "title": "Configure Redmine Connection"
-      },
-      {
-        "command": "redmine.showEpicLadder",
-        "title": "Show Epic Ladder",
-        "icon": "$(list-tree)"
+        "command": "taskPilot.showMenu",
+        "title": "TaskPilot: Show Menu"
       }
     ],
-    "menus": {
-      "view/title": [
-        {
-          "command": "redmine.refresh",
-          "when": "view == redmineIssues",
-          "group": "navigation"
-        },
-        {
-          "command": "redmine.showEpicLadder",
-          "when": "view == redmineIssues",
-          "group": "navigation"
-        }
-      ]
-    },
     "configuration": {
-      "title": "Redmine",
+      "title": "TaskPilot",
       "properties": {
-        "redmine.url": {
+        "taskPilot.configPath": {
           "type": "string",
-          "default": "",
-          "description": "Redmine server URL (e.g., https://redmine.example.com)"
-        },
-        "redmine.apiKey": {
-          "type": "string",
-          "default": "",
-          "description": "Redmine API key"
-        },
-        "redmine.defaultProject": {
-          "type": "string",
-          "default": "",
-          "description": "Default project identifier (e.g., my-project)"
+          "default": ".vscode/task-menu.yaml",
+          "description": "Path to the YAML configuration file (relative to workspace root)"
         }
       }
     }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
-    "compile:scss": "node scripts/compile-scss.js",
-    "compile": "npm run compile:scss && webpack",
-    "watch": "npm run compile:scss && webpack --watch",
-    "package": "npm run compile:scss && webpack --mode production --devtool hidden-source-map",
-    "compile:tsc": "npm run compile:scss && tsc -p ./",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile:tsc": "tsc -p ./",
     "pretest": "npm run compile:tsc",
     "test": "node ./out/test/runTest.js",
     "test:coverage": "c8 --reporter=text --reporter=html node ./out/test/runTest.js",
     "lint": "eslint src --ext ts"
   },
   "devDependencies": {
-    "@types/chai": "^5.2.3",
-    "@types/jsdom": "^27.0.0",
-    "@types/marked": "^5.0.2",
+    "@types/js-yaml": "^4.0.9",
     "@types/mocha": "^10.0.10",
     "@types/node": "^20.10.0",
-    "@types/sanitize-html": "^2.16.0",
     "@types/vscode": "^1.85.0",
     "@typescript-eslint/eslint-plugin": "^6.13.0",
     "@typescript-eslint/parser": "^6.13.0",
     "@vscode/test-electron": "^2.5.2",
     "c8": "^10.1.3",
-    "chai": "^6.2.1",
     "eslint": "^8.54.0",
     "glob": "^13.0.0",
-    "jsdom": "^27.4.0",
     "mocha": "^11.7.5",
-    "sass": "^1.97.1",
     "ts-loader": "^9.5.1",
     "typescript": "^5.3.0",
     "webpack": "^5.96.1",
     "webpack-cli": "^5.1.4"
   },
   "dependencies": {
-    "axios": "^1.13.2",
-    "marked": "^17.0.1",
-    "sanitize-html": "^2.17.0"
+    "js-yaml": "^4.1.0"
   },
   "c8": {
     "include": [
