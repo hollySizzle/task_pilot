@@ -290,12 +290,17 @@ export class ConfigEditorPanel {
     private _getHtmlForWebview(): string {
         const webview = this._panel.webview;
 
+        // editor.jsへのURI
+        const editorScriptUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this._extensionUri, 'media', 'editor.js')
+        );
+
         return `<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'unsafe-inline';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'unsafe-inline';">
     <title>TaskPilot Config Editor</title>
     <style>
         * {
@@ -628,12 +633,26 @@ export class ConfigEditorPanel {
         </div>
     </div>
 
+    <script src="${editorScriptUri}"></script>
     <script>
         const vscode = acquireVsCodeApi();
 
         let config = null;
         let editingPath = null;
         let dragSource = null;
+
+        // EditorLogic functions (from editor.js)
+        const {
+            escapeHtml,
+            getItemAtPath,
+            renderMenuItems,
+            renderCommands,
+            buildItemFromForm,
+            determineItemType,
+            getFormFieldVisibility,
+            calculateChildPath,
+            isSamePath
+        } = EditorLogic;
 
         // DOM Elements
         const menuTree = document.getElementById('menuTree');
@@ -679,64 +698,18 @@ export class ConfigEditorPanel {
                 return;
             }
 
-            // Render menu items
+            // Render menu items using EditorLogic
             if (config.menu && config.menu.length > 0) {
                 menuTree.innerHTML = renderMenuItems(config.menu, []);
             } else {
                 menuTree.innerHTML = '<div class="empty-state">No menu items. Click "Add Item" to create one.</div>';
             }
 
-            // Render commands
-            if (config.commands && Object.keys(config.commands).length > 0) {
-                commandsList.innerHTML = Object.entries(config.commands).map(([name, cmd]) =>
-                    '<div class="menu-item">' +
-                        '<span class="icon">📦</span>' +
-                        '<span class="label">' + escapeHtml(name) + '</span>' +
-                        '<span class="type-badge">' + cmd.type + '</span>' +
-                        '<span style="color: var(--vscode-descriptionForeground); font-size: 12px;">' + escapeHtml(cmd.command) + '</span>' +
-                        '<div class="actions">' +
-                            '<button onclick="editCommand(\\'' + escapeHtml(name) + '\\')">Edit</button>' +
-                            '<button class="delete" onclick="deleteCommand(\\'' + escapeHtml(name) + '\\')">Delete</button>' +
-                        '</div>' +
-                    '</div>'
-                ).join('');
-            } else {
-                commandsList.innerHTML = '<div class="empty-state">No commands defined</div>';
-            }
+            // Render commands using EditorLogic
+            commandsList.innerHTML = renderCommands(config.commands);
 
             // Add drag and drop listeners
             addDragListeners();
-        }
-
-        function renderMenuItems(items, path) {
-            return items.map((item, index) => {
-                const itemPath = [...path, index];
-                const pathStr = JSON.stringify(itemPath);
-                const hasChildren = item.children && item.children.length > 0;
-                const icon = item.icon || (hasChildren ? '📁' : '💻');
-                const typeBadge = item.ref ? 'ref: ' + item.ref : (item.type || 'category');
-
-                let html = '<div class="menu-item" draggable="true" data-path="' + pathStr + '">' +
-                    '<span class="drag-handle">⋮⋮</span>' +
-                    '<span class="icon">' + escapeHtml(icon) + '</span>' +
-                    '<span class="label">' + escapeHtml(item.label) + '</span>' +
-                    '<span class="type-badge">' + typeBadge + '</span>' +
-                    '<div class="actions">' +
-                        '<button onclick="editItem(' + pathStr + ')">Edit</button>';
-
-                if (hasChildren) {
-                    html += '<button onclick="addChildItem(' + pathStr + ')">Add Child</button>';
-                }
-
-                html += '<button class="delete" onclick="deleteItem(' + pathStr + ')">Delete</button>' +
-                    '</div></div>';
-
-                if (hasChildren) {
-                    html += '<div class="children">' + renderMenuItems(item.children, itemPath) + '</div>';
-                }
-
-                return html;
-            }).join('');
         }
 
         function addDragListeners() {
@@ -816,15 +789,7 @@ export class ConfigEditorPanel {
             document.getElementById('modalTitle').textContent = 'Edit Item';
             document.getElementById('itemLabel').value = item.label || '';
             document.getElementById('itemIcon').value = item.icon || '';
-
-            if (item.ref) {
-                document.getElementById('itemType').value = 'ref';
-            } else if (item.children && item.children.length > 0) {
-                document.getElementById('itemType').value = '';
-            } else {
-                document.getElementById('itemType').value = item.type || '';
-            }
-
+            document.getElementById('itemType').value = determineItemType(item);
             document.getElementById('itemCommand').value = item.command || '';
             document.getElementById('itemTerminal').value = item.terminal || '';
             document.getElementById('itemCwd').value = item.cwd || '';
@@ -855,24 +820,12 @@ export class ConfigEditorPanel {
 
         function updateFormFields() {
             const type = document.getElementById('itemType').value;
-            const actionFields = document.getElementById('actionFields');
-            const refField = document.getElementById('refField');
-            const terminalNameGroup = document.getElementById('terminalNameGroup');
-            const cwdGroup = document.getElementById('cwdGroup');
+            const visibility = getFormFieldVisibility(type);
 
-            if (type === 'ref') {
-                actionFields.style.display = 'none';
-                refField.style.display = 'block';
-            } else if (type === '' || !type) {
-                actionFields.style.display = 'none';
-                refField.style.display = 'none';
-            } else {
-                actionFields.style.display = 'block';
-                refField.style.display = 'none';
-
-                terminalNameGroup.style.display = type === 'terminal' ? 'block' : 'none';
-                cwdGroup.style.display = type === 'terminal' ? 'block' : 'none';
-            }
+            document.getElementById('actionFields').style.display = visibility.showActionFields ? 'block' : 'none';
+            document.getElementById('refField').style.display = visibility.showRefField ? 'block' : 'none';
+            document.getElementById('terminalNameGroup').style.display = visibility.showTerminalFields ? 'block' : 'none';
+            document.getElementById('cwdGroup').style.display = visibility.showTerminalFields ? 'block' : 'none';
         }
 
         function updateRefOptions() {
@@ -890,27 +843,17 @@ export class ConfigEditorPanel {
         }
 
         function saveItem() {
-            const type = document.getElementById('itemType').value;
-            const item = {
-                label: document.getElementById('itemLabel').value
+            const formData = {
+                label: document.getElementById('itemLabel').value,
+                icon: document.getElementById('itemIcon').value,
+                type: document.getElementById('itemType').value,
+                command: document.getElementById('itemCommand').value,
+                terminal: document.getElementById('itemTerminal').value,
+                cwd: document.getElementById('itemCwd').value,
+                ref: document.getElementById('itemRef').value
             };
 
-            const icon = document.getElementById('itemIcon').value;
-            if (icon) item.icon = icon;
-
-            if (type === 'ref') {
-                item.ref = document.getElementById('itemRef').value;
-            } else if (type && type !== '') {
-                item.type = type;
-                item.command = document.getElementById('itemCommand').value;
-
-                if (type === 'terminal') {
-                    const terminal = document.getElementById('itemTerminal').value;
-                    const cwd = document.getElementById('itemCwd').value;
-                    if (terminal) item.terminal = terminal;
-                    if (cwd) item.cwd = cwd;
-                }
-            }
+            const item = buildItemFromForm(formData);
 
             if (editingPath !== null) {
                 vscode.postMessage({
@@ -925,10 +868,7 @@ export class ConfigEditorPanel {
                 // Handle child add (path ends with -1)
                 if (path && path[path.length - 1] === -1) {
                     const parentPath = path.slice(0, -1);
-                    const parentItem = getItemAtPath(config.menu, parentPath);
-                    if (parentItem) {
-                        path = [...parentPath, (parentItem.children || []).length];
-                    }
+                    path = calculateChildPath(parentPath, config.menu);
                 }
 
                 vscode.postMessage({
@@ -939,15 +879,6 @@ export class ConfigEditorPanel {
             }
 
             closeModal();
-        }
-
-        function getItemAtPath(items, path) {
-            if (!items || path.length === 0) return null;
-            const index = path[0];
-            if (index < 0 || index >= items.length) return null;
-            const item = items[index];
-            if (path.length === 1) return item;
-            return getItemAtPath(item.children, path.slice(1));
         }
 
         function openAddCommandModal() {
@@ -986,11 +917,6 @@ export class ConfigEditorPanel {
                     commandName: name
                 });
             }
-        }
-
-        function escapeHtml(text) {
-            if (!text) return '';
-            return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         }
 
         // Notify extension we're ready

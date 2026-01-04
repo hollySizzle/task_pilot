@@ -7,6 +7,7 @@ node_modules/**
 .eslintrc.json
 tsconfig.json
 webpack.config.js
+jest.config.js
 *.ts
 **/*.map
 .git/**
@@ -14,3 +15,5 @@ webpack.config.js
 .env
 .mcp.json
 .claude/**
+media/__tests__/**
+coverage/**
