@@ -100,6 +100,7 @@
     "test:webview": "jest",
     "test:webview:coverage": "jest --coverage",
     "test:all": "npm run test && npm run test:e2e && npm run test:webview",
+    "test:all:coverage": "rimraf .c8_output && npm run compile:tsc && c8 --clean=false --reporter=none node ./out/test/runTest.js && c8 --clean=false --reporter=none node ./out/test/e2e/runTest.js && jest --coverage --coverageDirectory=.jest_output && c8 report --reporter=text --reporter=html",
     "lint": "eslint src --ext ts"
   },
   "devDependencies": {
@@ -119,6 +120,7 @@
     "jest-environment-jsdom": "^30.2.0",
     "jsdom": "^27.4.0",
     "mocha": "^11.7.5",
+    "rimraf": "^6.1.2",
     "sinon": "^21.0.1",
     "ts-loader": "^9.5.1",
     "typescript": "^5.3.0",
