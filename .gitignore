@@ -1,0 +1,11 @@
+.mcp.json
+.claude/settings.local.json
+node_modules/
+out/
+dist/
+.vscode-test/
+.env
+*.vsix
+tmp/**
+!.gitkeep
+coverage/
