@@ -94,7 +94,10 @@
     "compile:tsc": "tsc -p ./",
     "pretest": "npm run compile:tsc",
     "test": "node ./out/test/runTest.js",
+    "test:e2e": "npm run compile:tsc && node ./out/test/e2e/runTest.js",
+    "test:e2e:coverage": "npm run compile:tsc && c8 --reporter=text --reporter=html node ./out/test/e2e/runTest.js",
     "test:coverage": "c8 --reporter=text --reporter=html node ./out/test/runTest.js",
+    "test:all": "npm run test && npm run test:e2e",
     "lint": "eslint src --ext ts"
   },
   "devDependencies": {
