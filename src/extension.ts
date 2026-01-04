@@ -7,12 +7,16 @@ import * as vscode from 'vscode';
 import { ConfigManager } from './config-manager';
 import { ActionExecutor } from './action-executor';
 import { QuickPickMenu } from './quick-pick-menu';
+import { SidebarViewProvider } from './sidebar-view-provider';
 
 /** ConfigManager インスタンス */
 let configManager: ConfigManager | undefined;
 
 /** ActionExecutor インスタンス */
 let actionExecutor: ActionExecutor | undefined;
+
+/** SidebarViewProvider インスタンス */
+let sidebarProvider: SidebarViewProvider | undefined;
 
 /**
  * 拡張機能のアクティベート
@@ -41,6 +45,19 @@ export function activate(context: vscode.ExtensionContext): void {
     configManager.initialize().catch(err => {
         console.error('Failed to initialize ConfigManager:', err);
     });
+
+    // Initialize SidebarViewProvider
+    sidebarProvider = new SidebarViewProvider(
+        context.extensionUri,
+        configManager,
+        actionExecutor
+    );
+    context.subscriptions.push(
+        vscode.window.registerWebviewViewProvider(
+            SidebarViewProvider.VIEW_TYPE,
+            sidebarProvider
+        )
+    );
 
     // Register showMenu command
     const showMenuCommand = vscode.commands.registerCommand('taskPilot.showMenu', async () => {
@@ -78,6 +95,15 @@ export function activate(context: vscode.ExtensionContext): void {
     });
 
     context.subscriptions.push(reloadCommand);
+
+    // Register refreshSidebar command
+    const refreshSidebarCommand = vscode.commands.registerCommand('taskPilot.refreshSidebar', () => {
+        if (sidebarProvider) {
+            sidebarProvider.refresh();
+        }
+    });
+
+    context.subscriptions.push(refreshSidebarCommand);
 }
 
 /**
@@ -162,4 +188,5 @@ menu:
 export function deactivate(): void {
     configManager = undefined;
     actionExecutor = undefined;
+    sidebarProvider = undefined;
 }
