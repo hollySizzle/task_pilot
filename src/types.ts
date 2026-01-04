@@ -1,275 +1,120 @@
-// MCP JSON-RPC Types
-export interface JsonRpcRequest {
-    jsonrpc: '2.0';
-    id: number | string;
-    method: string;
-    params?: Record<string, unknown>;
-}
+/**
+ * TaskPilot Type Definitions
+ */
 
-export interface JsonRpcResponse<T = unknown> {
-    jsonrpc: '2.0';
-    id: number | string;
-    result?: T;
-    error?: JsonRpcError;
-}
+/**
+ * Action types supported by TaskPilot
+ */
+export type ActionType = 'terminal' | 'vscodeCommand' | 'task';
 
-export interface JsonRpcError {
-    code: number;
-    message: string;
-    data?: unknown;
-}
-
-// MCP Tool Call Types
-export interface McpToolCallParams {
-    name: string;
-    arguments: Record<string, unknown>;
-}
-
-export interface McpToolResult<T = unknown> {
-    content: Array<{
-        type: 'text';
-        text: string;
-    }>;
-    isError?: boolean;
-    _meta?: Record<string, unknown>;
-    parsedResult?: T;
-}
-
-// Redmine Issue Types
-export interface RedmineUser {
-    id: string;
-    name: string;
-}
-
-export interface RedmineTracker {
-    id: string;
-    name: string;
-}
-
-export interface RedmineStatus {
-    id: string;
-    name: string;
-    is_closed: boolean;
-}
-
-export interface RedminePriority {
-    id: string;
-    name: string;
-}
-
-export interface RedmineVersion {
-    id: string;
-    name: string;
-    status: 'open' | 'locked' | 'closed';
-    effective_date: string;
+/**
+ * Command definition for reusable actions
+ */
+export interface CommandDefinition {
+    /** Action type */
+    type: ActionType;
+    /** Command to execute */
+    command: string;
+    /** Terminal name (for type: terminal) */
+    terminal?: string;
+    /** Command arguments (for type: vscodeCommand) */
+    args?: unknown[];
+    /** Working directory (for type: terminal) */
+    cwd?: string;
+    /** Command description */
     description?: string;
 }
 
-export interface RedmineParent {
-    id: string;
-    subject: string;
+/**
+ * Menu item definition (recursive structure)
+ */
+export interface MenuItem {
+    /** Display label (required) */
+    label: string;
+    /** Icon (emoji or codicon) */
+    icon?: string;
+    /** Description text */
+    description?: string;
+    /** Sub-menu items (makes this a category) */
+    children?: MenuItem[];
+
+    // Action definition (one of the following when no children)
+    /** Reference to a command defined in commands section */
+    ref?: string;
+    /** Action type (when not using ref) */
+    type?: ActionType;
+    /** Command to execute (when not using ref) */
+    command?: string;
+    /** Terminal name (when type is terminal and not using ref) */
+    terminal?: string;
+    /** Command arguments (when type is vscodeCommand and not using ref) */
+    args?: unknown[];
+    /** Working directory (when type is terminal and not using ref) */
+    cwd?: string;
 }
 
-export interface RedmineJournalDetail {
-    property: string;
-    name: string;
-    old_value: string | null;
-    new_value: string | null;
+/**
+ * Root configuration structure for YAML file
+ */
+export interface MenuConfig {
+    /** Configuration version */
+    version: string;
+    /** Reusable command definitions */
+    commands?: Record<string, CommandDefinition>;
+    /** Menu structure */
+    menu: MenuItem[];
 }
 
-export interface RedmineJournal {
-    id: string;
-    user: RedmineUser;
-    created_on: string;
-    notes: string;
-    details: RedmineJournalDetail[];
+/**
+ * Resolved action after ref lookup
+ */
+export interface ResolvedAction {
+    /** Action type */
+    type: ActionType;
+    /** Command to execute */
+    command: string;
+    /** Terminal name (for terminal actions) */
+    terminal?: string;
+    /** Command arguments (for vscodeCommand actions) */
+    args?: unknown[];
+    /** Working directory (for terminal actions) */
+    cwd?: string;
+    /** Description */
+    description?: string;
 }
 
-export interface RedmineIssue {
-    id: string;
-    subject: string;
-    description: string;
-    tracker: RedmineTracker;
-    status: RedmineStatus;
-    priority: RedminePriority;
-    author: RedmineUser;
-    assigned_to?: RedmineUser;
-    fixed_version?: RedmineVersion;
-    parent?: RedmineParent;
-    created_on: string;
-    updated_on: string;
-    start_date?: string;
-    due_date?: string;
-    done_ratio: number;
-    url: string;
+/**
+ * Quick Pick item for VS Code UI
+ */
+export interface TaskPickItem {
+    /** Display label */
+    label: string;
+    /** Description shown next to label */
+    description?: string;
+    /** Detail shown below label */
+    detail?: string;
+    /** Original menu item */
+    menuItem: MenuItem;
+    /** Whether this is a back button */
+    isBack?: boolean;
 }
 
-export interface RedmineIssueChild {
-    id: string;
-    subject: string;
-    tracker: RedmineTracker;
-    status: RedmineStatus;
-}
-
-// Tool Response Types
-export interface GetIssueDetailResponse {
-    success: boolean;
-    issue: RedmineIssue;
-    journals: RedmineJournal[];
-    journals_count: number;
-    children: RedmineIssueChild[];
-    children_count: number;
-}
-
-// MCP get_project_structure_tool の応答構造
-export interface ProjectStructureStatus {
-    name: string;
-    is_closed: boolean;
-}
-
-export interface ProjectStructureVersion {
-    id: string;
-    name: string;
-}
-
-export interface ProjectStructureAssignee {
-    id: string;
-    name: string;
-}
-
-export interface ProjectStructureTaskItem {
-    id: string;
-    subject: string;
-    status: ProjectStructureStatus;
-    assigned_to?: ProjectStructureAssignee;
-    done_ratio?: number;
-}
-
-export interface ProjectStructureChildren {
-    tasks: ProjectStructureTaskItem[];
-    bugs: ProjectStructureTaskItem[];
-    tests: ProjectStructureTaskItem[];
-}
-
-export interface ProjectStructureUserStory {
-    id: string;
-    subject: string;
-    type: string;
-    status: ProjectStructureStatus;
-    version?: ProjectStructureVersion;
-    assigned_to?: ProjectStructureAssignee;
-    children?: ProjectStructureChildren;
-}
-
-export interface ProjectStructureFeature {
-    id: string;
-    subject: string;
-    type: string;
-    status: ProjectStructureStatus;
-    user_stories: ProjectStructureUserStory[];
-}
-
-export interface ProjectStructureEpic {
-    id: string;
-    subject: string;
-    type: string;
-    status: ProjectStructureStatus;
-    features: ProjectStructureFeature[];
-}
-
-export interface GetProjectStructureResponse {
-    success: boolean;
-    project: {
-        id: string;
-        identifier: string;
-        name: string;
-    };
-    structure: ProjectStructureEpic[];
-    summary: {
-        total_epics: number;
-        total_features: number;
-        total_user_stories: number;
-        total_tasks: number;
-        total_bugs: number;
-        total_tests: number;
-    };
-}
-
-export interface ListVersionsResponse {
-    success: boolean;
-    versions: RedmineVersion[];
-    total_count: number;
-}
-
-export interface AddIssueCommentResponse {
-    success: boolean;
-    issue_id: string;
-    journal_id: string;
+/**
+ * Validation error information
+ */
+export interface ValidationError {
+    /** Error message */
     message: string;
+    /** Path to the problematic field (e.g., "menu[0].children[1].ref") */
+    path?: string;
 }
 
-export interface UpdateIssueStatusResponse {
-    success: boolean;
-    issue_id: string;
-    old_status: string;
-    new_status: string;
-    message: string;
-}
-
-export interface UpdateIssueAssigneeResponse {
-    success: boolean;
-    issue_id: string;
-    old_assignee: string | null;
-    new_assignee: string | null;
-    message: string;
-}
-
-// ステータス一覧
-export interface RedmineStatusItem {
-    id: string;
-    name: string;
-    is_closed: boolean;
-    position: number;
-    description: string | null;
-}
-
-export interface ListStatusesResponse {
-    success: boolean;
-    statuses: RedmineStatusItem[];
-    total_count: number;
-    source: string;
-}
-
-// プロジェクトメンバー一覧
-export interface RedmineRole {
-    id: string;
-    name: string;
-}
-
-export interface RedmineMember {
-    user_id: string;
-    login: string;
-    name: string;
-    mail: string;
-    roles: RedmineRole[];
-    is_active: boolean;
-}
-
-export interface ListProjectMembersResponse {
-    success: boolean;
-    project: {
-        id: string;
-        identifier: string;
-        name: string;
-    };
-    members: RedmineMember[];
-    total_count: number;
-}
-
-// MCP Client Configuration
-export interface McpClientConfig {
-    serverUrl: string;
-    apiKey: string;
-    defaultProject?: string;
-    timeout?: number;
+/**
+ * Validation result
+ */
+export interface ValidationResult {
+    /** Whether the configuration is valid */
+    valid: boolean;
+    /** List of errors (empty if valid) */
+    errors: ValidationError[];
 }
