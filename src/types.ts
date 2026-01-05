@@ -188,3 +188,19 @@ export interface MultipleActionResult {
     /** List of errors (when continueOnError is true) */
     errors?: ActionError[];
 }
+
+/**
+ * Action group for terminal command batching
+ */
+export type ActionGroup =
+    | {
+          type: 'single';
+          action: ResolvedAction;
+          startIndex: number;
+      }
+    | {
+          type: 'terminal-group';
+          actions: ResolvedAction[];
+          terminalName: string;
+          startIndex: number;
+      };

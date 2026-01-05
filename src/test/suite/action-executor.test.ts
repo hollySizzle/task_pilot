@@ -261,10 +261,11 @@ suite('ActionExecutor Test Suite', () => {
         });
 
         test('should handle cancellation', async () => {
+            // Use different terminal names to prevent grouping
             const actions: ResolvedAction[] = [
-                { type: 'terminal', command: 'echo "1"', terminal: 'CancelTest' },
-                { type: 'terminal', command: 'echo "2"', terminal: 'CancelTest' },
-                { type: 'terminal', command: 'echo "3"', terminal: 'CancelTest' }
+                { type: 'terminal', command: 'echo "1"', terminal: 'CancelTest1' },
+                { type: 'terminal', command: 'echo "2"', terminal: 'CancelTest2' },
+                { type: 'terminal', command: 'echo "3"', terminal: 'CancelTest3' }
             ];
 
             const cancellationTokenSource = new vscode.CancellationTokenSource();
@@ -284,6 +285,107 @@ suite('ActionExecutor Test Suite', () => {
 
             assert.strictEqual(result.cancelled, true, 'Should be cancelled');
             assert.strictEqual(result.completedCount, 1, 'Should complete only 1 action before cancel');
+        });
+
+        test('should group consecutive terminal commands to same terminal', async () => {
+            const actions: ResolvedAction[] = [
+                { type: 'terminal', command: 'echo "first"', terminal: 'GroupTest' },
+                { type: 'terminal', command: 'echo "second"', terminal: 'GroupTest' },
+                { type: 'terminal', command: 'echo "third"', terminal: 'GroupTest' }
+            ];
+
+            const progressReports: ResolvedAction[] = [];
+
+            const result = await executor.executeMultiple(actions, {
+                onProgress: (current, total, action) => {
+                    progressReports.push(action);
+                }
+            });
+
+            assert.ok(result.success, 'All actions should succeed');
+            assert.strictEqual(result.completedCount, 3, 'Should complete 3 actions');
+            assert.strictEqual(progressReports.length, 3, 'Should report progress 3 times');
+
+            // Verify terminal was created
+            const terminal = vscode.window.terminals.find(t => t.name === 'GroupTest');
+            assert.ok(terminal, 'GroupTest terminal should be created');
+        });
+
+        test('should not group terminal commands to different terminals', async () => {
+            const actions: ResolvedAction[] = [
+                { type: 'terminal', command: 'echo "a"', terminal: 'TermA' },
+                { type: 'terminal', command: 'echo "b"', terminal: 'TermB' },
+                { type: 'terminal', command: 'echo "c"', terminal: 'TermA' }
+            ];
+
+            const result = await executor.executeMultiple(actions);
+
+            assert.ok(result.success, 'All actions should succeed');
+            assert.strictEqual(result.completedCount, 3, 'Should complete 3 actions');
+
+            // Verify both terminals were created
+            const terminalA = vscode.window.terminals.find(t => t.name === 'TermA');
+            const terminalB = vscode.window.terminals.find(t => t.name === 'TermB');
+            assert.ok(terminalA, 'TermA should be created');
+            assert.ok(terminalB, 'TermB should be created');
+        });
+
+        test('should handle mixed action types with terminal grouping', async () => {
+            const actions: ResolvedAction[] = [
+                { type: 'terminal', command: 'echo "1"', terminal: 'MixedTest' },
+                { type: 'terminal', command: 'echo "2"', terminal: 'MixedTest' },
+                { type: 'vscodeCommand', command: 'workbench.action.files.newUntitledFile' },
+                { type: 'terminal', command: 'echo "3"', terminal: 'MixedTest' }
+            ];
+
+            const result = await executor.executeMultiple(actions);
+
+            assert.ok(result.success, 'All actions should succeed');
+            assert.strictEqual(result.completedCount, 4, 'Should complete 4 actions');
+        });
+
+        test('should use default terminal name when not specified', async () => {
+            const actions: ResolvedAction[] = [
+                { type: 'terminal', command: 'echo "default1"' },
+                { type: 'terminal', command: 'echo "default2"' }
+            ];
+
+            const result = await executor.executeMultiple(actions);
+
+            assert.ok(result.success, 'All actions should succeed');
+
+            // Verify default TaskPilot terminal was created
+            const terminal = vscode.window.terminals.find(t => t.name === 'TaskPilot');
+            assert.ok(terminal, 'Default TaskPilot terminal should be created');
+        });
+
+        test('should not group single terminal action', async () => {
+            const actions: ResolvedAction[] = [
+                { type: 'terminal', command: 'echo "single"', terminal: 'SingleTest' }
+            ];
+
+            const result = await executor.executeMultiple(actions);
+
+            assert.ok(result.success, 'Single action should succeed');
+            assert.strictEqual(result.completedCount, 1, 'Should complete 1 action');
+        });
+
+        test('should handle continueOnError with grouped terminal followed by failing action', async () => {
+            const actions: ResolvedAction[] = [
+                { type: 'terminal', command: 'echo "a"', terminal: 'ContErrTest' },
+                { type: 'terminal', command: 'echo "b"', terminal: 'ContErrTest' },
+                { type: 'vscodeCommand', command: 'nonexistent.command.xyz' },
+                { type: 'terminal', command: 'echo "c"', terminal: 'ContErrTest' }
+            ];
+
+            const result = await executor.executeMultiple(actions, {
+                continueOnError: true
+            });
+
+            assert.strictEqual(result.success, false, 'Overall should fail due to error');
+            assert.strictEqual(result.completedCount, 3, 'Should complete 3 actions (2 grouped + 1 after error)');
+            assert.ok(result.errors, 'Should have errors array');
+            assert.strictEqual(result.errors!.length, 1, 'Should have 1 error');
         });
     });
 });
