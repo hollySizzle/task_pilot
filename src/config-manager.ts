@@ -232,6 +232,7 @@ export class ConfigManager implements vscode.Disposable {
     /**
      * メニューアイテムの複数アクションを解決
      * actions配列がある場合はそれを解決して返す
+     * 親のterminal設定で子のterminalを上書きする
      */
     resolveActions(item: MenuItem): ResolvedAction[] | null {
         if (!item.actions || item.actions.length === 0) {
@@ -248,7 +249,23 @@ export class ConfigManager implements vscode.Disposable {
             }
         }
 
-        return resolved.length > 0 ? resolved : null;
+        if (resolved.length === 0) {
+            return null;
+        }
+
+        // terminalアクションのterminal名を統一
+        // 親のterminal設定があればそれを使用、なければ最初のアクションのterminalを使用
+        const unifiedTerminal = item.terminal ||
+            resolved.find(a => a.type === 'terminal')?.terminal ||
+            'Actions';
+
+        for (const action of resolved) {
+            if (action.type === 'terminal') {
+                action.terminal = unifiedTerminal;
+            }
+        }
+
+        return resolved;
     }
 
     /**

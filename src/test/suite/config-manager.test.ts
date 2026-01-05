@@ -388,6 +388,121 @@ suite('ConfigManager Test Suite', () => {
             assert.ok(actions !== null);
             assert.strictEqual(actions!.length, 2);
         });
+
+        test('should unify terminal names when parent has terminal setting', () => {
+            const manager = new ConfigManager();
+            const config: MenuConfig = {
+                version: '1.0',
+                menu: [],
+                commands: {
+                    git_status: { type: 'terminal', command: 'git status', terminal: 'Git' },
+                    list_files: { type: 'terminal', command: 'ls -la', terminal: 'Explorer' }
+                }
+            };
+            (manager as unknown as { config: MenuConfig }).config = config;
+
+            const item: MenuItem = {
+                label: 'Sequential Actions',
+                terminal: 'Unified',  // 親でterminalを指定
+                actions: [
+                    { ref: 'git_status' },
+                    { ref: 'list_files' }
+                ]
+            };
+
+            const actions = manager.resolveActions(item);
+            assert.ok(actions !== null);
+            assert.strictEqual(actions!.length, 2);
+            // 両方のterminal名が親の設定で統一される
+            assert.strictEqual(actions![0].terminal, 'Unified');
+            assert.strictEqual(actions![1].terminal, 'Unified');
+        });
+
+        test('should unify terminal names using first action terminal when parent has no terminal', () => {
+            const manager = new ConfigManager();
+            const config: MenuConfig = {
+                version: '1.0',
+                menu: [],
+                commands: {
+                    git_status: { type: 'terminal', command: 'git status', terminal: 'Git' },
+                    list_files: { type: 'terminal', command: 'ls -la', terminal: 'Explorer' }
+                }
+            };
+            (manager as unknown as { config: MenuConfig }).config = config;
+
+            const item: MenuItem = {
+                label: 'Sequential Actions',
+                // terminal省略 - 最初のアクションのterminalを使用
+                actions: [
+                    { ref: 'git_status' },
+                    { ref: 'list_files' }
+                ]
+            };
+
+            const actions = manager.resolveActions(item);
+            assert.ok(actions !== null);
+            assert.strictEqual(actions!.length, 2);
+            // 最初のアクションのterminal 'Git' で統一
+            assert.strictEqual(actions![0].terminal, 'Git');
+            assert.strictEqual(actions![1].terminal, 'Git');
+        });
+
+        test('should use default terminal name when no terminal specified anywhere', () => {
+            const manager = new ConfigManager();
+            const config: MenuConfig = {
+                version: '1.0',
+                menu: [],
+                commands: {
+                    cmd1: { type: 'terminal', command: 'echo 1' },
+                    cmd2: { type: 'terminal', command: 'echo 2' }
+                }
+            };
+            (manager as unknown as { config: MenuConfig }).config = config;
+
+            const item: MenuItem = {
+                label: 'No Terminal',
+                actions: [
+                    { ref: 'cmd1' },
+                    { ref: 'cmd2' }
+                ]
+            };
+
+            const actions = manager.resolveActions(item);
+            assert.ok(actions !== null);
+            assert.strictEqual(actions!.length, 2);
+            // デフォルト 'Actions' で統一
+            assert.strictEqual(actions![0].terminal, 'Actions');
+            assert.strictEqual(actions![1].terminal, 'Actions');
+        });
+
+        test('should not affect non-terminal actions when unifying terminal names', () => {
+            const manager = new ConfigManager();
+            const config: MenuConfig = {
+                version: '1.0',
+                menu: [],
+                commands: {
+                    build: { type: 'terminal', command: 'npm run build', terminal: 'Build' }
+                }
+            };
+            (manager as unknown as { config: MenuConfig }).config = config;
+
+            const item: MenuItem = {
+                label: 'Mixed Types',
+                terminal: 'Unified',
+                actions: [
+                    { ref: 'build' },
+                    { type: 'vscodeCommand', command: 'workbench.action.files.save' }
+                ]
+            };
+
+            const actions = manager.resolveActions(item);
+            assert.ok(actions !== null);
+            assert.strictEqual(actions!.length, 2);
+            // terminalアクションは統一される
+            assert.strictEqual(actions![0].terminal, 'Unified');
+            // vscodeCommandはterminal設定を持たない（undefinedのまま）
+            assert.strictEqual(actions![1].terminal, undefined);
+        });
     });
 
     suite('hasMultipleActions', () => {
