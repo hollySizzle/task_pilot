@@ -1,7 +1,7 @@
 {
   "name": "taskpilot",
-  "displayName": "Task Pilot",
-  "description": "Hierarchical task menu for VS Code - execute terminal commands, VS Code commands, and tasks from YAML configuration",
+  "displayName": "%displayName%",
+  "description": "%description%",
   "version": "0.2.6",
   "publisher": "hollySizzle",
   "license": "MIT",
@@ -28,13 +28,14 @@
   "categories": [
     "Other"
   ],
+  "l10n": "./l10n",
   "main": "./dist/extension.js",
   "contributes": {
     "viewsContainers": {
       "activitybar": [
         {
           "id": "taskPilot",
-          "title": "TaskPilot",
+          "title": "%viewsContainers.taskPilot.title%",
           "icon": "resources/taskpilot-icon.svg"
         }
       ]
@@ -44,32 +45,32 @@
         {
           "type": "webview",
           "id": "taskPilot.sidebarView",
-          "name": "Menu"
+          "name": "%views.sidebarView.name%"
         }
       ]
     },
     "commands": [
       {
         "command": "taskPilot.showMenu",
-        "title": "TaskPilot: Show Menu"
+        "title": "%commands.showMenu.title%"
       },
       {
         "command": "taskPilot.reloadConfig",
-        "title": "TaskPilot: Reload Configuration"
+        "title": "%commands.reloadConfig.title%"
       },
       {
         "command": "taskPilot.refreshSidebar",
-        "title": "TaskPilot: Refresh Sidebar",
+        "title": "%commands.refreshSidebar.title%",
         "icon": "$(refresh)"
       },
       {
         "command": "taskPilot.openEditor",
-        "title": "TaskPilot: Open Config Editor",
+        "title": "%commands.openEditor.title%",
         "icon": "$(edit)"
       },
       {
         "command": "taskPilot.generateSample",
-        "title": "TaskPilot: サンプル設定を生成"
+        "title": "%commands.generateSample.title%"
       }
     ],
     "keybindings": [
@@ -80,12 +81,12 @@
       }
     ],
     "configuration": {
-      "title": "TaskPilot",
+      "title": "%configuration.title%",
       "properties": {
         "taskPilot.configPath": {
           "type": "string",
           "default": ".vscode/task-menu.yaml",
-          "description": "Path to the YAML configuration file (relative to workspace root)"
+          "description": "%configuration.configPath.description%"
         }
       }
     },

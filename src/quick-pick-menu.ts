@@ -79,7 +79,7 @@ export class QuickPickMenu {
     ): Promise<void> {
         const config = configManager.getConfig();
         if (!config && !items) {
-            vscode.window.showWarningMessage('TaskPilot: No configuration loaded');
+            vscode.window.showWarningMessage(`TaskPilot: ${vscode.l10n.t('No configuration loaded')}`);
             return;
         }
 
@@ -137,7 +137,7 @@ export class QuickPickMenu {
                 try {
                     const terminals = await actionExecutor.executeParallel(parallelActions);
                     vscode.window.showInformationMessage(
-                        `TaskPilot: Started ${terminals.length} parallel terminal(s)`
+                        `TaskPilot: ${vscode.l10n.t('Started {0} parallel terminal(s)', terminals.length)}`
                     );
                 } catch (error) {
                     const message = error instanceof Error ? error.message : String(error);
@@ -189,15 +189,15 @@ export class QuickPickMenu {
                 });
 
                 if (result.cancelled) {
-                    vscode.window.showWarningMessage(`TaskPilot: Execution cancelled (${result.completedCount}/${result.totalCount} completed)`);
+                    vscode.window.showWarningMessage(`TaskPilot: ${vscode.l10n.t('Execution cancelled ({0}/{1} completed)', result.completedCount, result.totalCount)}`);
                 } else if (!result.success) {
                     if (result.error) {
-                        vscode.window.showErrorMessage(`TaskPilot: ${result.error.message} (at step ${(result.failedIndex ?? 0) + 1})`);
+                        vscode.window.showErrorMessage(`TaskPilot: ${vscode.l10n.t('{0} (at step {1})', result.error.message, (result.failedIndex ?? 0) + 1)}`);
                     } else if (result.errors && result.errors.length > 0) {
-                        vscode.window.showWarningMessage(`TaskPilot: Completed with ${result.errors.length} error(s)`);
+                        vscode.window.showWarningMessage(`TaskPilot: ${vscode.l10n.t('Completed with {0} error(s)', result.errors.length)}`);
                     }
                 } else {
-                    vscode.window.showInformationMessage(`TaskPilot: All ${result.totalCount} actions completed`);
+                    vscode.window.showInformationMessage(`TaskPilot: ${vscode.l10n.t('All {0} actions completed', result.totalCount)}`);
                 }
             });
         }

@@ -1,0 +1,13 @@
+{
+  "displayName": "Task Pilot",
+  "description": "VS Code用階層型タスクメニュー - YAML設定からターミナルコマンド、VS Codeコマンド、タスクを実行",
+  "viewsContainers.taskPilot.title": "TaskPilot",
+  "views.sidebarView.name": "メニュー",
+  "commands.showMenu.title": "TaskPilot: メニューを表示",
+  "commands.reloadConfig.title": "TaskPilot: 設定を再読み込み",
+  "commands.refreshSidebar.title": "TaskPilot: サイドバーを更新",
+  "commands.openEditor.title": "TaskPilot: 設定エディタを開く",
+  "commands.generateSample.title": "TaskPilot: サンプル設定を生成",
+  "configuration.title": "TaskPilot",
+  "configuration.configPath.description": "YAML設定ファイルのパス（ワークスペースルートからの相対パス）"
+}

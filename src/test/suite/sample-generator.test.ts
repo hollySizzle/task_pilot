@@ -24,11 +24,10 @@ suite('sample-generator Test Suite', () => {
             assert.strictEqual(sampleTemplates.length, 3);
         });
 
-        test('各テンプレートにメタ情報がある', () => {
+        test('各テンプレートにidがある', () => {
             for (const template of sampleTemplates) {
                 assert.ok(template.id, 'idが定義されていること');
-                assert.ok(template.label, 'labelが定義されていること');
-                assert.ok(template.description, 'descriptionが定義されていること');
+                // label/descriptionは実行時にローカライズされるため、空文字列でOK
             }
         });
     });
@@ -54,21 +53,21 @@ suite('sample-generator Test Suite', () => {
             const templates = getSampleTemplates();
             const minimal = templates.find(t => t.id === 'minimal');
             assert.ok(minimal);
-            assert.ok(minimal.label.includes('最小構成'));
+            assert.ok(minimal.label.includes('$(file)'), 'minimalアイコンが含まれる');
         });
 
         test('standard テンプレートが存在する', () => {
             const templates = getSampleTemplates();
             const standard = templates.find(t => t.id === 'standard');
             assert.ok(standard);
-            assert.ok(standard.label.includes('標準構成'));
+            assert.ok(standard.label.includes('$(list-tree)'), 'standardアイコンが含まれる');
         });
 
         test('advanced テンプレートが存在する', () => {
             const templates = getSampleTemplates();
             const advanced = templates.find(t => t.id === 'advanced');
             assert.ok(advanced);
-            assert.ok(advanced.label.includes('フル機能'));
+            assert.ok(advanced.label.includes('$(rocket)'), 'advancedアイコンが含まれる');
         });
     });
 
@@ -193,12 +192,12 @@ suite('sample-generator Test Suite', () => {
             }
         });
 
-        test('テンプレートに日本語コメントが含まれている', () => {
+        test('テンプレートにコメントが含まれている', () => {
             const templates = getSampleTemplates();
             for (const template of templates) {
-                // 日本語文字が含まれているか確認
-                const hasJapanese = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(template.content);
-                assert.ok(hasJapanese, `${template.id} テンプレートに日本語コメントがあること`);
+                // YAMLコメント（# で始まる行）が含まれているか確認
+                const hasComments = template.content.includes('#');
+                assert.ok(hasComments, `${template.id} テンプレートにコメントがあること`);
             }
         });
 

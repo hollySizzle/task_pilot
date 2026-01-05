@@ -121,13 +121,13 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     private async _executeAction(path: string): Promise<void> {
         const config = this._configManager.getConfig();
         if (!config) {
-            vscode.window.showErrorMessage('TaskPilot: 設定が読み込まれていません');
+            vscode.window.showErrorMessage(`TaskPilot: ${vscode.l10n.t('Configuration not loaded')}`);
             return;
         }
 
         const item = this._findItemByPath(config.menu, path.split('.'));
         if (!item) {
-            vscode.window.showErrorMessage('TaskPilot: メニューアイテムが見つかりません');
+            vscode.window.showErrorMessage(`TaskPilot: ${vscode.l10n.t('Menu item not found')}`);
             return;
         }
 
@@ -144,7 +144,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
                 try {
                     const terminals = await this._actionExecutor.executeParallel(parallelActions);
                     vscode.window.showInformationMessage(
-                        `TaskPilot: ${terminals.length}個の並列ターミナルを起動しました`
+                        `TaskPilot: ${vscode.l10n.t('Started {0} parallel terminal(s)', terminals.length)}`
                     );
                 } catch (error) {
                     const message = error instanceof Error ? error.message : String(error);
@@ -157,7 +157,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         // アクション実行（単一/複数対応）
         const actions = this._configManager.resolveActions(item);
         if (!actions || actions.length === 0) {
-            vscode.window.showErrorMessage('TaskPilot: 実行可能なアクションがありません');
+            vscode.window.showErrorMessage(`TaskPilot: ${vscode.l10n.t('No executable action available')}`);
             return;
         }
 
@@ -188,15 +188,15 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
                 });
 
                 if (result.cancelled) {
-                    vscode.window.showWarningMessage(`TaskPilot: 実行がキャンセルされました (${result.completedCount}/${result.totalCount} 完了)`);
+                    vscode.window.showWarningMessage(`TaskPilot: ${vscode.l10n.t('Execution cancelled ({0}/{1} completed)', result.completedCount, result.totalCount)}`);
                 } else if (!result.success) {
                     if (result.error) {
-                        vscode.window.showErrorMessage(`TaskPilot: ${result.error.message} (ステップ ${(result.failedIndex ?? 0) + 1})`);
+                        vscode.window.showErrorMessage(`TaskPilot: ${vscode.l10n.t('{0} (at step {1})', result.error.message, (result.failedIndex ?? 0) + 1)}`);
                     } else if (result.errors && result.errors.length > 0) {
-                        vscode.window.showWarningMessage(`TaskPilot: ${result.errors.length}件のエラーで完了`);
+                        vscode.window.showWarningMessage(`TaskPilot: ${vscode.l10n.t('Completed with {0} error(s)', result.errors.length)}`);
                     }
                 } else {
-                    vscode.window.showInformationMessage(`TaskPilot: 全${result.totalCount}アクション完了`);
+                    vscode.window.showInformationMessage(`TaskPilot: ${vscode.l10n.t('All {0} actions completed', result.totalCount)}`);
                 }
             });
         }
@@ -466,7 +466,9 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
      */
     private _getMenuWithToggleHtml(items: MenuItem[]): string {
         const toggleIcon = this._showDescriptions ? 'codicon-eye' : 'codicon-eye-closed';
-        const toggleLabel = this._showDescriptions ? '説明を隠す' : '説明を表示';
+        const toggleLabel = this._showDescriptions
+            ? vscode.l10n.t('Hide descriptions')
+            : vscode.l10n.t('Show descriptions');
 
         let html = `<button class="description-toggle" onclick="toggleDescriptions()">
             <i class="codicon ${toggleIcon}"></i>
@@ -530,9 +532,9 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
      */
     private _getEmptyStateHtml(): string {
         return `<div class="empty-state">
-            <p>設定ファイルがありません</p>
-            <p class="empty-hint">サンプルから始めましょう</p>
-            <button class="generate-btn" onclick="generateSample()">サンプル設定を生成</button>
+            <p>${vscode.l10n.t('No configuration file')}</p>
+            <p class="empty-hint">${vscode.l10n.t("Let's start with a sample")}</p>
+            <button class="generate-btn" onclick="generateSample()">${vscode.l10n.t('Generate sample configuration')}</button>
         </div>`;
     }
 
