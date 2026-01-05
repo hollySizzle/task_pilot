@@ -1,0 +1,111 @@
+# TaskPilot - フル機能サンプル
+# 全機能のデモ: parallel（並列実行）, actions（順次実行）, ref など
+# Generated from types.ts (SSoT)
+
+version: "1.0"
+
+commands:
+  build:
+    type: terminal
+    command: npm run build
+    description: プロジェクトをビルド
+  test:
+    type: terminal
+    command: npm test
+    description: テストを実行
+  lint:
+    type: terminal
+    command: npm run lint
+    description: Lintチェック
+  start:
+    type: terminal
+    command: npm start
+    description: 開発サーバー起動
+    terminal: server
+
+menu:
+  - label: Development
+    icon: "$(tools)"
+    description: 開発用コマンド
+    children:
+      - label: Build
+        icon: "$(package)"
+        ref: build
+      - label: Test
+        icon: "$(beaker)"
+        ref: test
+      - label: Lint
+        icon: "$(checklist)"
+        ref: lint
+
+  # actions: 順次実行アクション
+  - label: CI Pipeline
+    icon: "$(rocket)"
+    description: Lint → Test → Build を順番に実行
+    actions:
+      - ref: lint
+      - ref: test
+      - ref: build
+    # continueOnError: エラー時も続行
+    # continueOnError: true
+
+  # parallel: 並列実行アクション
+  - label: Dev Environment
+    icon: "$(split-horizontal)"
+    description: サーバーとウォッチを並列起動
+    parallel:
+      - type: terminal
+        command: npm run watch
+        terminal: watch
+        description: ファイル変更を監視
+      - ref: start
+
+  - label: Git
+    icon: "$(git-branch)"
+    children:
+      - label: Basic
+        icon: "$(versions)"
+        children:
+          - label: Status
+            icon: "$(info)"
+            type: terminal
+            command: git status
+          - label: Log
+            icon: "$(history)"
+            type: terminal
+            command: git log --oneline -10
+      - label: Sync
+        icon: "$(sync)"
+        children:
+          - label: Pull
+            icon: "$(cloud-download)"
+            type: terminal
+            command: git pull
+          - label: Push
+            icon: "$(cloud-upload)"
+            type: terminal
+            command: git push
+
+  - label: Editor
+    icon: "$(window)"
+    children:
+      - label: Settings
+        icon: "$(gear)"
+        type: vscodeCommand
+        command: workbench.action.openSettings
+      - label: Keyboard Shortcuts
+        icon: "$(keyboard)"
+        type: vscodeCommand
+        command: workbench.action.openGlobalKeybindings
+      - label: Extensions
+        icon: "$(extensions)"
+        type: vscodeCommand
+        command: workbench.extensions.action.showInstalledExtensions
+
+  # cwd: 作業ディレクトリ（type: terminal の場合）
+  - label: Subproject
+    icon: "$(folder)"
+    description: サブディレクトリで実行
+    type: terminal
+    command: npm install
+    cwd: ./packages/subproject

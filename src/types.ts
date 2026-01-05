@@ -1,200 +1,474 @@
 /**
  * TaskPilot Type Definitions
+ *
+ * TaskPilotのYAML設定ファイルの型定義。
+ * このファイルはSSoT（Single Source of Truth）として、
+ * JSON SchemaおよびサンプルYAMLの自動生成に使用されます。
+ *
+ * @packageDocumentation
  */
 
 /**
- * Action types supported by TaskPilot
+ * アクションタイプ
+ *
+ * TaskPilotがサポートするアクションの種類を定義します。
+ *
+ * - `terminal`: ターミナルでシェルコマンドを実行
+ * - `vscodeCommand`: VS Codeの内蔵コマンドを実行
+ * - `task`: VS Codeのタスクを実行
+ *
+ * @example
+ * ```yaml
+ * type: terminal
+ * command: npm run build
+ * ```
  */
 export type ActionType = 'terminal' | 'vscodeCommand' | 'task';
 
 /**
- * Command definition for reusable actions
+ * コマンド定義
+ *
+ * `commands`セクションで定義する再利用可能なコマンド。
+ * 定義したコマンドはメニュー項目から`ref`で参照できます。
+ *
+ * @example
+ * ```yaml
+ * commands:
+ *   build:
+ *     type: terminal
+ *     command: npm run build
+ *     description: プロジェクトをビルド
+ *   open-settings:
+ *     type: vscodeCommand
+ *     command: workbench.action.openSettings
+ * ```
  */
 export interface CommandDefinition {
-    /** Action type */
+    /**
+     * アクションタイプ
+     * @example "terminal"
+     */
     type: ActionType;
-    /** Command to execute */
+
+    /**
+     * 実行するコマンド
+     *
+     * - `terminal`: シェルコマンド（例: `npm run build`）
+     * - `vscodeCommand`: VS CodeコマンドID（例: `workbench.action.openSettings`）
+     * - `task`: タスク名（例: `build`）
+     *
+     * @example "npm run build"
+     */
     command: string;
-    /** Terminal name (for type: terminal) */
+
+    /**
+     * ターミナル名（type: terminal の場合）
+     *
+     * 指定するとそのターミナル名で新しいターミナルを作成または再利用します。
+     * 省略時は共有ターミナルを使用します。
+     *
+     * @example "server"
+     */
     terminal?: string;
-    /** Command arguments (for type: vscodeCommand) */
+
+    /**
+     * コマンド引数（type: vscodeCommand の場合）
+     *
+     * VS Codeコマンドに渡す引数の配列。
+     *
+     * @example ["extensionId"]
+     */
     args?: unknown[];
-    /** Working directory (for type: terminal) */
+
+    /**
+     * 作業ディレクトリ（type: terminal の場合）
+     *
+     * コマンドを実行するディレクトリ。相対パスはワークスペースルートからの相対パス。
+     *
+     * @example "./packages/app"
+     */
     cwd?: string;
-    /** Command description */
+
+    /**
+     * コマンドの説明
+     *
+     * UIに表示される説明文。
+     *
+     * @example "プロジェクトをビルドします"
+     */
     description?: string;
 }
 
 /**
- * Action definition for multiple actions
+ * アクション定義
+ *
+ * `actions`または`parallel`配列内で使用するアクションの定義。
+ * `ref`でコマンドを参照するか、インラインでアクションを定義します。
+ *
+ * @example
+ * ```yaml
+ * actions:
+ *   - ref: build          # コマンド参照
+ *   - type: terminal      # インライン定義
+ *     command: npm test
+ * ```
  */
 export interface ActionDefinition {
-    /** Reference to a command defined in commands section */
+    /**
+     * コマンド参照
+     *
+     * `commands`セクションで定義したコマンド名を参照します。
+     * `ref`を使用する場合、他のプロパティ（type, command等）は不要です。
+     *
+     * @example "build"
+     */
     ref?: string;
-    /** Action type (when not using ref) */
+
+    /**
+     * アクションタイプ（ref未使用時）
+     * @example "terminal"
+     */
     type?: ActionType;
-    /** Command to execute (when not using ref) */
+
+    /**
+     * 実行するコマンド（ref未使用時）
+     * @example "npm run build"
+     */
     command?: string;
-    /** Terminal name (when type is terminal and not using ref) */
+
+    /**
+     * ターミナル名（type: terminal、ref未使用時）
+     * @example "server"
+     */
     terminal?: string;
-    /** Command arguments (when type is vscodeCommand and not using ref) */
+
+    /**
+     * コマンド引数（type: vscodeCommand、ref未使用時）
+     * @example ["extensionId"]
+     */
     args?: unknown[];
-    /** Working directory (when type is terminal and not using ref) */
+
+    /**
+     * 作業ディレクトリ（type: terminal、ref未使用時）
+     * @example "./packages/app"
+     */
     cwd?: string;
-    /** Description for this action */
+
+    /**
+     * アクションの説明
+     * @example "テストを実行"
+     */
     description?: string;
 }
 
 /**
- * Menu item definition (recursive structure)
+ * メニュー項目
+ *
+ * サイドバーに表示されるメニュー項目の定義。
+ * 再帰的な構造で、子メニュー（children）を持つことができます。
+ *
+ * ## 使用パターン
+ *
+ * 1. **単一アクション**: `ref`、または`type`+`command`で直接定義
+ * 2. **カテゴリ（親メニュー）**: `children`で子メニューを定義
+ * 3. **順次実行**: `actions`で複数アクションを順番に実行
+ * 4. **並列実行**: `parallel`で複数アクションを同時実行（ターミナル分割）
+ *
+ * @example
+ * ```yaml
+ * menu:
+ *   # 単一アクション（ref参照）
+ *   - label: Build
+ *     icon: "$(package)"
+ *     ref: build
+ *
+ *   # カテゴリ（子メニューあり）
+ *   - label: Git
+ *     icon: "$(git-branch)"
+ *     children:
+ *       - label: Pull
+ *         type: terminal
+ *         command: git pull
+ *
+ *   # 順次実行
+ *   - label: CI Pipeline
+ *     actions:
+ *       - ref: lint
+ *       - ref: test
+ *       - ref: build
+ *
+ *   # 並列実行
+ *   - label: Dev Environment
+ *     parallel:
+ *       - type: terminal
+ *         command: npm run watch
+ *         terminal: watch
+ *       - ref: start
+ * ```
  */
 export interface MenuItem {
-    /** Display label (required) */
+    /**
+     * 表示ラベル（必須）
+     *
+     * サイドバーに表示されるメニュー項目の名前。
+     *
+     * @example "Build"
+     */
     label: string;
-    /** Icon (emoji or codicon) */
+
+    /**
+     * アイコン
+     *
+     * VS Code Codicon（`$(icon-name)`形式）または絵文字を指定。
+     * Codiconの一覧: https://code.visualstudio.com/api/references/icons-in-labels
+     *
+     * @example "$(package)"
+     * @example "🚀"
+     */
     icon?: string;
-    /** Description text */
+
+    /**
+     * 説明文
+     *
+     * メニュー項目の補足説明。ホバー時に表示されます。
+     *
+     * @example "プロジェクトをビルドします"
+     */
     description?: string;
-    /** Sub-menu items (makes this a category) */
+
+    /**
+     * 子メニュー項目
+     *
+     * 指定するとこの項目はカテゴリ（親メニュー）になります。
+     * `children`を指定した場合、アクション関連のプロパティは無視されます。
+     */
     children?: MenuItem[];
 
-    // Action definition (one of the following when no children)
-    /** Reference to a command defined in commands section */
+    // --- アクション定義（childrenがない場合に使用）---
+
+    /**
+     * コマンド参照
+     *
+     * `commands`セクションで定義したコマンド名を参照。
+     *
+     * @example "build"
+     */
     ref?: string;
-    /** Action type (when not using ref) */
+
+    /**
+     * アクションタイプ（ref未使用時）
+     * @example "terminal"
+     */
     type?: ActionType;
-    /** Command to execute (when not using ref) */
+
+    /**
+     * 実行するコマンド（ref未使用時）
+     * @example "npm run build"
+     */
     command?: string;
-    /** Terminal name (when type is terminal and not using ref) */
+
+    /**
+     * ターミナル名（type: terminal、ref未使用時）
+     * @example "server"
+     */
     terminal?: string;
-    /** Command arguments (when type is vscodeCommand and not using ref) */
+
+    /**
+     * コマンド引数（type: vscodeCommand、ref未使用時）
+     */
     args?: unknown[];
-    /** Working directory (when type is terminal and not using ref) */
+
+    /**
+     * 作業ディレクトリ（type: terminal、ref未使用時）
+     * @example "./packages/app"
+     */
     cwd?: string;
 
-    // Multiple actions
-    /** Array of actions to execute sequentially */
+    // --- 複数アクション ---
+
+    /**
+     * 順次実行アクション
+     *
+     * 配列内のアクションを順番に実行します。
+     * 前のアクションが完了してから次のアクションを実行。
+     */
     actions?: ActionDefinition[];
-    /** Continue executing remaining actions even if one fails */
+
+    /**
+     * エラー時も続行
+     *
+     * `actions`使用時、エラーが発生しても残りのアクションを実行し続けます。
+     *
+     * @default false
+     */
     continueOnError?: boolean;
 
-    // Parallel actions (split terminals)
-    /** Array of actions to execute in parallel with split terminals */
+    // --- 並列実行 ---
+
+    /**
+     * 並列実行アクション
+     *
+     * 配列内のアクションを同時に実行します。
+     * ターミナルコマンドの場合、ターミナルを分割して表示。
+     */
     parallel?: ActionDefinition[];
 }
 
 /**
- * Root configuration structure for YAML file
+ * ルート設定
+ *
+ * TaskPilotのYAML設定ファイルのルート構造。
+ * `.vscode/taskpilot.yaml`に配置して使用します。
+ *
+ * @example
+ * ```yaml
+ * version: "1.0"
+ *
+ * commands:
+ *   build:
+ *     type: terminal
+ *     command: npm run build
+ *
+ * menu:
+ *   - label: Build
+ *     icon: "$(package)"
+ *     ref: build
+ * ```
  */
 export interface MenuConfig {
-    /** Configuration version */
+    /**
+     * 設定ファイルのバージョン
+     *
+     * 現在は "1.0" を指定してください。
+     *
+     * @example "1.0"
+     */
     version: string;
-    /** Reusable command definitions */
+
+    /**
+     * 再利用可能なコマンド定義
+     *
+     * ここで定義したコマンドは、メニュー項目から`ref`で参照できます。
+     * 同じコマンドを複数の場所で使いたい場合に便利です。
+     */
     commands?: Record<string, CommandDefinition>;
-    /** Menu structure */
+
+    /**
+     * メニュー構造
+     *
+     * サイドバーに表示されるメニュー項目の配列。
+     * 階層構造を持つことができます。
+     */
     menu: MenuItem[];
 }
 
 /**
- * Resolved action after ref lookup
+ * 解決済みアクション
+ *
+ * `ref`参照を解決した後の、実行可能なアクション情報。
+ * 内部処理で使用される型です。
  */
 export interface ResolvedAction {
-    /** Action type */
+    /** アクションタイプ */
     type: ActionType;
-    /** Command to execute */
+    /** 実行コマンド */
     command: string;
-    /** Terminal name (for terminal actions) */
+    /** ターミナル名 */
     terminal?: string;
-    /** Command arguments (for vscodeCommand actions) */
+    /** コマンド引数 */
     args?: unknown[];
-    /** Working directory (for terminal actions) */
+    /** 作業ディレクトリ */
     cwd?: string;
-    /** Description */
+    /** 説明 */
     description?: string;
 }
 
 /**
- * Quick Pick item for VS Code UI
+ * QuickPick項目（内部用）
+ *
+ * VS CodeのQuickPick UIで使用される項目。
  */
 export interface TaskPickItem {
-    /** Display label */
+    /** 表示ラベル */
     label: string;
-    /** Description shown next to label */
+    /** ラベル横の説明 */
     description?: string;
-    /** Detail shown below label */
+    /** ラベル下の詳細 */
     detail?: string;
-    /** Original menu item */
+    /** 元のメニュー項目 */
     menuItem: MenuItem;
-    /** Whether this is a back button */
+    /** 戻るボタンかどうか */
     isBack?: boolean;
 }
 
 /**
- * Validation error information
+ * バリデーションエラー（内部用）
  */
 export interface ValidationError {
-    /** Error message */
+    /** エラーメッセージ */
     message: string;
-    /** Path to the problematic field (e.g., "menu[0].children[1].ref") */
+    /** 問題のあるフィールドへのパス（例: "menu[0].children[1].ref"） */
     path?: string;
 }
 
 /**
- * Validation result
+ * バリデーション結果（内部用）
  */
 export interface ValidationResult {
-    /** Whether the configuration is valid */
+    /** 設定が有効かどうか */
     valid: boolean;
-    /** List of errors (empty if valid) */
+    /** エラーリスト（有効な場合は空） */
     errors: ValidationError[];
 }
 
 /**
- * Options for multiple action execution
+ * 複数アクション実行オプション（内部用）
  */
 export interface MultipleActionOptions {
-    /** Continue executing remaining actions even if one fails */
+    /** エラー時も続行するか */
     continueOnError?: boolean;
-    /** Cancellation token to abort execution */
+    /** キャンセルトークン */
     cancellationToken?: { isCancellationRequested: boolean };
-    /** Progress callback called after each action completes */
+    /** 進捗コールバック */
     onProgress?: (current: number, total: number, action: ResolvedAction) => void;
 }
 
 /**
- * Error info for multiple action execution
+ * アクションエラー情報（内部用）
  */
 export interface ActionError {
-    /** Index of the failed action */
+    /** 失敗したアクションのインデックス */
     index: number;
-    /** The action that failed */
+    /** 失敗したアクション */
     action: ResolvedAction;
-    /** The error that occurred */
+    /** 発生したエラー */
     error: Error;
 }
 
 /**
- * Result of multiple action execution
+ * 複数アクション実行結果（内部用）
  */
 export interface MultipleActionResult {
-    /** Whether all actions completed successfully */
+    /** 全アクション成功したか */
     success: boolean;
-    /** Number of successfully completed actions */
+    /** 完了したアクション数 */
     completedCount: number;
-    /** Total number of actions */
+    /** 総アクション数 */
     totalCount: number;
-    /** Whether execution was cancelled */
+    /** キャンセルされたか */
     cancelled?: boolean;
-    /** Error that caused execution to stop (when continueOnError is false) */
+    /** 停止原因のエラー（continueOnError: false時） */
     error?: Error;
-    /** Index of failed action (when continueOnError is false) */
+    /** 失敗アクションのインデックス（continueOnError: false時） */
     failedIndex?: number;
-    /** List of errors (when continueOnError is true) */
+    /** エラーリスト（continueOnError: true時） */
     errors?: ActionError[];
 }
 
 /**
- * Action group for terminal command batching
+ * アクショングループ（内部用）
+ *
+ * ターミナルコマンドのバッチ処理用。
  */
 export type ActionGroup =
     | {

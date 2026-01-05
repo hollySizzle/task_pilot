@@ -12,3 +12,5 @@ coverage/
 test-workspace/
 .c8_output/
 .jest_output/
+scripts/*.js
+scripts/*.js.map
