@@ -5,7 +5,7 @@ suite('Extension Test Suite', () => {
     vscode.window.showInformationMessage('Starting TaskPilot extension tests.');
 
     test('Extension should be present', () => {
-        const ext = vscode.extensions.getExtension('hollySizzle.task-pilot');
+        const ext = vscode.extensions.getExtension('hollySizzle.taskpilot');
         assert.ok(ext, 'Extension should be found');
     });
 
@@ -13,7 +13,7 @@ suite('Extension Test Suite', () => {
         this.timeout(10000);
 
         // Activate extension
-        const ext = vscode.extensions.getExtension('hollySizzle.task-pilot');
+        const ext = vscode.extensions.getExtension('hollySizzle.taskpilot');
         if (ext && !ext.isActive) {
             await ext.activate();
         }
@@ -39,7 +39,7 @@ suite('Extension Integration Test Suite', () => {
 
     suiteSetup(async function() {
         this.timeout(10000);
-        ext = vscode.extensions.getExtension('hollySizzle.task-pilot');
+        ext = vscode.extensions.getExtension('hollySizzle.taskpilot');
         if (ext && !ext.isActive) {
             await ext.activate();
         }
@@ -113,7 +113,7 @@ suite('Extension Integration Test Suite', () => {
     test('extension should have correct metadata', () => {
         assert.ok(ext, 'Extension should exist');
         assert.ok(ext!.packageJSON, 'Extension should have package.json');
-        assert.strictEqual(ext!.packageJSON.name, 'task-pilot', 'Extension name should be task-pilot');
+        assert.strictEqual(ext!.packageJSON.name, 'taskpilot', 'Extension name should be taskpilot');
         assert.strictEqual(ext!.packageJSON.publisher, 'hollySizzle', 'Publisher should be hollySizzle');
     });
 });
