@@ -10,7 +10,7 @@ const sass = require('sass');
 const fs = require('fs');
 const path = require('path');
 
-const SCSS_PATH = path.join(__dirname, '../src/webview/styles.scss');
+const SCSS_PATH = path.join(__dirname, '../src/webview/styles/index.scss');
 const TS_OUTPUT_PATH = path.join(__dirname, '../src/webview/styles.ts');
 
 function compileScss() {
@@ -27,7 +27,7 @@ function compileScss() {
 
     // Generate TypeScript file
     const tsContent = `/**
- * CSS styles for the Epic Ladder webview
+ * CSS styles for the TaskPilot webview
  *
  * AUTO-GENERATED FILE - DO NOT EDIT DIRECTLY
  * Edit styles.scss instead and run 'npm run compile:scss' to regenerate.

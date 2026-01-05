@@ -1,0 +1,40 @@
+/**
+ * Design Tokens - CSS Variables
+ *
+ * 規約:
+ * - VSCode変数をラップして一元管理
+ * - 単位: フォント・余白はrem推奨、境界線・影はpx許容
+ */
+
+:root {
+  // VS Code Theme Variables
+  --tp-bg: var(--vscode-editor-background);
+  --tp-fg: var(--vscode-foreground);
+  --tp-fg-description: var(--vscode-descriptionForeground);
+  --tp-hover-bg: var(--vscode-list-hoverBackground);
+  --tp-border: var(--vscode-widget-border, rgba(128, 128, 128, 0.3));
+  --tp-indent-guide: var(--vscode-tree-indentGuidesStroke, rgba(128, 128, 128, 0.3));
+
+  // Button
+  --tp-btn-bg: var(--vscode-button-background);
+  --tp-btn-fg: var(--vscode-button-foreground);
+  --tp-btn-hover-bg: var(--vscode-button-hoverBackground);
+
+  // Spacing
+  --tp-space-xs: 0.25rem;  // 4px
+  --tp-space-sm: 0.5rem;   // 8px
+  --tp-space-md: 0.75rem;  // 12px
+  --tp-space-lg: 1rem;     // 16px
+
+  // Font sizes
+  --tp-font-sm: 0.6875rem; // 11px
+  --tp-font-base: var(--vscode-font-size);
+
+  // Border radius
+  --tp-radius: 3px;
+
+  // Layout
+  --tp-item-height: 22px;
+  --tp-icon-size: 16px;
+  --tp-indent: 16px;
+}

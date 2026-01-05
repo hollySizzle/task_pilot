@@ -1,0 +1,144 @@
+/**
+ * Menu Component Styles
+ */
+
+.menu-container {
+  padding: var(--tp-space-sm) 0;
+}
+
+.menu-item {
+  display: flex;
+  align-items: flex-start;
+  padding: var(--tp-radius) var(--tp-space-sm) var(--tp-radius) var(--tp-space-md);
+  cursor: pointer;
+  user-select: none;
+  min-height: var(--tp-item-height);
+
+  &:hover {
+    background-color: var(--tp-hover-bg);
+
+    .run-btn {
+      opacity: 1;
+    }
+  }
+
+  &.category {
+    font-weight: 600;
+  }
+}
+
+// Icon & Chevron
+.menu-item .icon,
+.menu-item .chevron {
+  width: var(--tp-icon-size);
+  height: var(--tp-item-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.menu-item .icon {
+  margin-right: 6px;
+}
+
+.menu-item .chevron {
+  margin-right: 2px;
+  opacity: 0.8;
+  color: var(--tp-fg);
+}
+
+// Label & Description
+.menu-item .label-container {
+  flex: 1;
+  min-width: 0;
+}
+
+.menu-item .label {
+  line-height: var(--tp-item-height);
+}
+
+.menu-item .description {
+  font-size: var(--tp-font-sm);
+  color: var(--tp-fg-description);
+  opacity: 0.8;
+  line-height: 1.3;
+  margin-top: 1px;
+  word-break: break-word;
+}
+
+// Run Button
+.menu-item .run-btn {
+  opacity: 0;
+  padding: 2px 6px;
+  background: var(--tp-btn-bg);
+  color: var(--tp-btn-fg);
+  border: none;
+  border-radius: var(--tp-radius);
+  cursor: pointer;
+  font-size: var(--tp-font-sm);
+
+  &:hover {
+    background: var(--tp-btn-hover-bg);
+  }
+}
+
+// Children (nested items)
+.children {
+  display: none;
+
+  &.expanded {
+    display: block;
+  }
+
+  .menu-item {
+    padding-left: calc(var(--tp-indent) + var(--tp-space-sm));
+    position: relative;
+
+    // Indent guide line
+    &::before {
+      content: '';
+      position: absolute;
+      left: var(--tp-indent);
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: var(--tp-indent-guide);
+    }
+  }
+
+  // Nested children (2 levels)
+  .children .menu-item {
+    padding-left: calc(var(--tp-indent) * 2 + var(--tp-space-sm));
+
+    &::after {
+      content: '';
+      position: absolute;
+      left: calc(var(--tp-indent) * 2);
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: var(--tp-indent-guide);
+    }
+  }
+}
+
+// Description Toggle Button
+.description-toggle {
+  padding: var(--tp-space-xs) var(--tp-space-sm);
+  margin: var(--tp-space-xs) var(--tp-space-sm);
+  font-size: var(--tp-font-sm);
+  color: var(--tp-fg-description);
+  background: transparent;
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--tp-space-xs);
+
+  &:hover {
+    background: var(--tp-hover-bg);
+  }
+}

@@ -1,0 +1,15 @@
+/**
+ * TaskPilot Webview Styles
+ *
+ * CSS規約:
+ * - ファイル分割: 機能ごとにpartialファイル
+ * - 単位: フォント・余白はrem推奨、境界線・影はpx許容
+ * - ネスト構造: スコープ限定のため使用
+ * - box-sizing: border-boxを全要素に適用
+ */
+
+@use 'variables';
+@use 'reset';
+@use 'menu';
+@use 'sidebar';
+@use 'editor';

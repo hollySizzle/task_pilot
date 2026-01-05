@@ -1,0 +1,236 @@
+/**
+ * Config Editor Styles
+ * 設定エディタパネル用のスタイル
+ */
+
+// Toolbar
+.toolbar {
+  display: flex;
+  gap: var(--tp-space-sm);
+  margin-bottom: var(--tp-space-lg);
+  padding: var(--tp-space-sm);
+  background: var(--vscode-toolbar-background);
+  border-radius: 4px;
+
+  button {
+    padding: 6px 12px;
+    background: var(--tp-btn-bg);
+    color: var(--tp-btn-fg);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+
+    &:hover:not(:disabled) {
+      background: var(--tp-btn-hover-bg);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    &.primary {
+      background: var(--tp-btn-bg);
+    }
+
+    &.secondary {
+      background: var(--vscode-button-secondaryBackground);
+      color: var(--vscode-button-secondaryForeground);
+    }
+  }
+}
+
+// Section
+.section {
+  margin-bottom: 24px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--tp-space-sm);
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--tp-fg);
+}
+
+// Menu Tree (editor mode)
+.menu-tree {
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  background: var(--tp-bg);
+
+  // Override for editor context
+  .menu-item {
+    display: flex;
+    align-items: center;
+    padding: var(--tp-space-sm) var(--tp-space-md);
+    border-bottom: 1px solid var(--vscode-panel-border);
+    cursor: grab;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &:hover {
+      background: var(--tp-hover-bg);
+
+      .actions {
+        opacity: 1;
+      }
+    }
+
+    &.dragging {
+      opacity: 0.5;
+    }
+
+    &.drag-over {
+      border-top: 2px solid var(--vscode-focusBorder);
+    }
+  }
+
+  .drag-handle {
+    margin-right: var(--tp-space-sm);
+    color: var(--tp-fg-description);
+    cursor: grab;
+  }
+
+  .icon {
+    margin-right: var(--tp-space-sm);
+    width: 20px;
+    text-align: center;
+  }
+
+  .label {
+    flex: 1;
+    font-weight: 500;
+  }
+
+  .type-badge {
+    font-size: var(--tp-font-sm);
+    padding: 2px 6px;
+    border-radius: var(--tp-radius);
+    background: var(--vscode-badge-background);
+    color: var(--vscode-badge-foreground);
+    margin-right: var(--tp-space-sm);
+  }
+
+  .actions {
+    display: flex;
+    gap: var(--tp-space-xs);
+    opacity: 0;
+
+    button {
+      padding: var(--tp-space-xs) var(--tp-space-sm);
+      font-size: var(--tp-font-sm);
+      background: transparent;
+      border: 1px solid var(--vscode-button-border, transparent);
+      color: var(--tp-fg);
+      border-radius: var(--tp-radius);
+      cursor: pointer;
+
+      &:hover {
+        background: var(--vscode-button-secondaryBackground);
+      }
+
+      &.delete:hover {
+        background: var(--vscode-errorForeground);
+        color: white;
+      }
+    }
+  }
+
+  .children {
+    padding-left: 24px;
+  }
+}
+
+// Modal
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+
+  &.open {
+    display: flex;
+  }
+}
+
+.modal-content {
+  background: var(--tp-bg);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 8px;
+  padding: 24px;
+  min-width: 400px;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--tp-space-lg);
+}
+
+.modal-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: var(--tp-fg);
+}
+
+// Form
+.form-group {
+  margin-bottom: var(--tp-space-lg);
+
+  label {
+    display: block;
+    margin-bottom: var(--tp-space-xs);
+    font-weight: 500;
+  }
+
+  input,
+  select,
+  textarea {
+    width: 100%;
+    padding: var(--tp-space-sm);
+    background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: inherit;
+  }
+
+  textarea {
+    min-height: 80px;
+    resize: vertical;
+  }
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--tp-space-sm);
+  margin-top: 24px;
+}
