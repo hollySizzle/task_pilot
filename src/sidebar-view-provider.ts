@@ -426,7 +426,17 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
             '$(add)': '➕',
             '$(trash)': '🗑️',
             '$(edit)': '✏️',
-            '$(refresh)': '🔄'
+            '$(refresh)': '🔄',
+            '$(eye)': '👁️',
+            '$(versions)': '📚',
+            '$(history)': '🕐',
+            '$(sync)': '🔄',
+            '$(window)': '🪟',
+            '$(keyboard)': '⌨️',
+            '$(extensions)': '🧩',
+            '$(rocket)': '🚀',
+            '$(split-horizontal)': '⬌',
+            '$(list-tree)': '🌲'
         };
 
         return codiconMap[icon] || icon;
