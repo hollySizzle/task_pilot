@@ -1,0 +1,13 @@
+{
+  "displayName": "Task Pilot",
+  "description": "Hierarchical task menu for VS Code - execute terminal commands, VS Code commands, and tasks from YAML configuration",
+  "viewsContainers.taskPilot.title": "TaskPilot",
+  "views.sidebarView.name": "Menu",
+  "commands.showMenu.title": "TaskPilot: Show Menu",
+  "commands.reloadConfig.title": "TaskPilot: Reload Configuration",
+  "commands.refreshSidebar.title": "TaskPilot: Refresh Sidebar",
+  "commands.openEditor.title": "TaskPilot: Open Config Editor",
+  "commands.generateSample.title": "TaskPilot: Generate Sample Configuration",
+  "configuration.title": "TaskPilot",
+  "configuration.configPath.description": "Path to the YAML configuration file (relative to workspace root)"
+}

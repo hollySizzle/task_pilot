@@ -68,7 +68,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // Register showMenu command
     const showMenuCommand = vscode.commands.registerCommand('taskPilot.showMenu', async () => {
         if (!configManager || !actionExecutor) {
-            vscode.window.showErrorMessage('TaskPilot: Extension not initialized');
+            vscode.window.showErrorMessage(`TaskPilot: ${vscode.l10n.t('Extension not initialized')}`);
             return;
         }
 
@@ -76,11 +76,11 @@ export function activate(context: vscode.ExtensionContext): void {
         if (!config) {
             const configPath = configManager.getConfigPath();
             const action = await vscode.window.showWarningMessage(
-                `TaskPilot: No configuration found. Create ${configPath || '.vscode/task-menu.yaml'} to get started.`,
-                'Create Sample'
+                `TaskPilot: ${vscode.l10n.t('No configuration found. Create {0} to get started.', configPath || '.vscode/task-menu.yaml')}`,
+                vscode.l10n.t('Create Sample')
             );
 
-            if (action === 'Create Sample') {
+            if (action === vscode.l10n.t('Create Sample')) {
                 await createSampleConfig(configPath);
             }
             return;
@@ -96,7 +96,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const reloadCommand = vscode.commands.registerCommand('taskPilot.reloadConfig', async () => {
         if (configManager) {
             await configManager.reloadConfig();
-            vscode.window.showInformationMessage('TaskPilot: Configuration reloaded');
+            vscode.window.showInformationMessage(`TaskPilot: ${vscode.l10n.t('Configuration reloaded')}`);
         }
     });
 
@@ -114,7 +114,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // Register openEditor command
     const openEditorCommand = vscode.commands.registerCommand('taskPilot.openEditor', () => {
         if (!configManager) {
-            vscode.window.showErrorMessage('TaskPilot: Extension not initialized');
+            vscode.window.showErrorMessage(`TaskPilot: ${vscode.l10n.t('Extension not initialized')}`);
             return;
         }
 
@@ -126,13 +126,13 @@ export function activate(context: vscode.ExtensionContext): void {
     // Register generateSample command
     const generateSampleCommand = vscode.commands.registerCommand('taskPilot.generateSample', async () => {
         if (!configManager) {
-            vscode.window.showErrorMessage('TaskPilot: Extension not initialized');
+            vscode.window.showErrorMessage(`TaskPilot: ${vscode.l10n.t('Extension not initialized')}`);
             return;
         }
 
         const configPath = configManager.getConfigPath();
         if (!configPath) {
-            vscode.window.showErrorMessage('TaskPilot: ワークスペースフォルダが開かれていません');
+            vscode.window.showErrorMessage(`TaskPilot: ${vscode.l10n.t('No workspace folder open')}`);
             return;
         }
 
@@ -147,7 +147,7 @@ export function activate(context: vscode.ExtensionContext): void {
  */
 async function createSampleConfig(configPath: string | null): Promise<void> {
     if (!configPath) {
-        vscode.window.showErrorMessage('TaskPilot: Cannot create config file - no workspace folder open');
+        vscode.window.showErrorMessage(`TaskPilot: ${vscode.l10n.t('Cannot create config file - no workspace folder open')}`);
         return;
     }
 
@@ -211,10 +211,10 @@ menu:
         await vscode.workspace.fs.writeFile(uri, Buffer.from(sampleConfig, 'utf-8'));
         const doc = await vscode.workspace.openTextDocument(uri);
         await vscode.window.showTextDocument(doc);
-        vscode.window.showInformationMessage('TaskPilot: Sample configuration created');
+        vscode.window.showInformationMessage(`TaskPilot: ${vscode.l10n.t('Sample configuration created')}`);
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        vscode.window.showErrorMessage(`TaskPilot: Failed to create config file: ${message}`);
+        vscode.window.showErrorMessage(`TaskPilot: ${vscode.l10n.t('Failed to create config file: {0}', message)}`);
     }
 }
 

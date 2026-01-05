@@ -37,25 +37,36 @@ interface TemplateDefinition {
 }
 
 /**
- * 利用可能なテンプレートのメタ情報
+ * 利用可能なテンプレートのメタ情報（ローカライズキーを使用）
  */
-const templateDefinitions: TemplateDefinition[] = [
+interface LocalizedTemplateDefinition extends TemplateDefinition {
+    labelKey: string;
+    descriptionKey: string;
+}
+
+const templateDefinitions: LocalizedTemplateDefinition[] = [
     {
         id: 'minimal',
-        label: '$(file) 最小構成（Minimal）',
-        description: '10行程度 - 基本だけ',
+        label: '', // runtime localized
+        description: '', // runtime localized
+        labelKey: 'Minimal',
+        descriptionKey: 'Minimal description',
         filename: 'minimal.yaml'
     },
     {
         id: 'standard',
-        label: '$(list-tree) 標準構成（Standard）',
-        description: '50行程度 - ref/children含む',
+        label: '', // runtime localized
+        description: '', // runtime localized
+        labelKey: 'Standard',
+        descriptionKey: 'Standard description',
         filename: 'standard.yaml'
     },
     {
         id: 'advanced',
-        label: '$(rocket) フル機能（Advanced）',
-        description: 'parallel/actions含む全機能デモ',
+        label: '', // runtime localized
+        description: '', // runtime localized
+        labelKey: 'Advanced',
+        descriptionKey: 'Advanced description',
         filename: 'advanced.yaml'
     }
 ];
@@ -74,7 +85,21 @@ export function setExtensionPath(extPath: string): void {
 }
 
 /**
+ * 現在の言語コードを取得
+ */
+function getCurrentLanguage(): string {
+    const lang = vscode.env.language;
+    // 日本語の場合は 'ja' を返す
+    if (lang.startsWith('ja')) {
+        return 'ja';
+    }
+    // それ以外は英語
+    return 'en';
+}
+
+/**
  * サンプルファイルを読み込む
+ * 言語設定に基づいて適切なファイルを選択
  * @param filename ファイル名
  */
 function loadSampleFile(filename: string): string | undefined {
@@ -83,12 +108,26 @@ function loadSampleFile(filename: string): string | undefined {
         return undefined;
     }
 
-    const samplePath = path.join(extensionPath, 'schemas', 'samples', filename);
+    const lang = getCurrentLanguage();
+    const samplePath = path.join(extensionPath, 'schemas', 'samples', lang, filename);
+
     try {
         return fs.readFileSync(samplePath, 'utf-8');
     } catch {
         console.error(`Failed to load sample file: ${samplePath}`);
         return undefined;
+    }
+}
+
+/**
+ * アイコンを付けたラベルを返す
+ */
+function getIconForTemplate(id: string): string {
+    switch (id) {
+        case 'minimal': return '$(file)';
+        case 'standard': return '$(list-tree)';
+        case 'advanced': return '$(rocket)';
+        default: return '$(file)';
     }
 }
 
@@ -103,8 +142,8 @@ export function getSampleTemplates(): SampleTemplate[] {
             if (!content) return null;
             return {
                 id: def.id,
-                label: def.label,
-                description: def.description,
+                label: `${getIconForTemplate(def.id)} ${vscode.l10n.t(def.labelKey)}`,
+                description: vscode.l10n.t(def.descriptionKey),
                 content
             };
         })
@@ -132,7 +171,7 @@ export async function generateSampleConfig(configPath: string): Promise<void> {
 
     if (templates.length === 0) {
         vscode.window.showErrorMessage(
-            'TaskPilot: サンプルテンプレートが見つかりません。拡張を再インストールしてください。'
+            `TaskPilot: ${vscode.l10n.t('Sample templates not found. Please reinstall the extension.')}`
         );
         return;
     }
@@ -145,8 +184,8 @@ export async function generateSampleConfig(configPath: string): Promise<void> {
             template: t
         })),
         {
-            placeHolder: 'サンプルテンプレートを選択してください',
-            title: 'TaskPilot: サンプル設定を生成'
+            placeHolder: vscode.l10n.t('Select a sample template'),
+            title: `TaskPilot: ${vscode.l10n.t('Generate Sample Configuration')}`
         }
     );
 
@@ -165,12 +204,13 @@ export async function generateSampleConfig(configPath: string): Promise<void> {
     }
 
     if (fileExists) {
+        const overwriteLabel = vscode.l10n.t('Overwrite');
         const overwrite = await vscode.window.showWarningMessage(
-            `${configPath} は既に存在します。上書きしますか？`,
+            vscode.l10n.t('{0} already exists. Overwrite?', configPath),
             { modal: true },
-            '上書き'
+            overwriteLabel
         );
-        if (overwrite !== '上書き') {
+        if (overwrite !== overwriteLabel) {
             return;
         }
     }
@@ -180,12 +220,13 @@ export async function generateSampleConfig(configPath: string): Promise<void> {
         await vscode.workspace.fs.writeFile(uri, Buffer.from(selected.template.content, 'utf-8'));
         const doc = await vscode.workspace.openTextDocument(uri);
         await vscode.window.showTextDocument(doc);
+        const templateName = selected.template.label.replace(/\$\([^)]+\)\s*/, '');
         vscode.window.showInformationMessage(
-            `TaskPilot: ${selected.template.label.replace(/\$\([^)]+\)\s*/, '')}サンプルを生成しました`
+            `TaskPilot: ${vscode.l10n.t('{0} sample generated', templateName)}`
         );
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        vscode.window.showErrorMessage(`TaskPilot: サンプル生成に失敗しました: ${message}`);
+        vscode.window.showErrorMessage(`TaskPilot: ${vscode.l10n.t('Failed to generate sample: {0}', message)}`);
     }
 }
 

@@ -1,0 +1,16 @@
+# TaskPilot - Minimal Configuration
+# Basic menu structure example
+# Generated from types.ts (SSoT)
+
+version: "1.0"
+
+menu:
+  - label: Build
+    icon: "$(package)"
+    type: terminal
+    command: npm run build
+
+  - label: Test
+    icon: "$(beaker)"
+    type: terminal
+    command: npm test
