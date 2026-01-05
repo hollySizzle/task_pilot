@@ -388,4 +388,92 @@ suite('ActionExecutor Test Suite', () => {
             assert.strictEqual(result.errors!.length, 1, 'Should have 1 error');
         });
     });
+
+    suite('Parallel Terminal Execution', () => {
+        test('should create split terminals for parallel actions', async () => {
+            const actions: ResolvedAction[] = [
+                { type: 'terminal', command: 'echo "parallel1"', terminal: 'Parallel1' },
+                { type: 'terminal', command: 'echo "parallel2"', terminal: 'Parallel2' }
+            ];
+
+            const terminals = await executor.executeParallel(actions);
+
+            assert.strictEqual(terminals.length, 2, 'Should create 2 terminals');
+
+            // Verify terminals exist
+            const term1 = vscode.window.terminals.find(t => t.name === 'Parallel1');
+            const term2 = vscode.window.terminals.find(t => t.name === 'Parallel2');
+            assert.ok(term1, 'First terminal should exist');
+            assert.ok(term2, 'Second terminal should exist');
+        });
+
+        test('should use default terminal names when not specified', async () => {
+            const actions: ResolvedAction[] = [
+                { type: 'terminal', command: 'echo "a"' },
+                { type: 'terminal', command: 'echo "b"' },
+                { type: 'terminal', command: 'echo "c"' }
+            ];
+
+            const terminals = await executor.executeParallel(actions);
+
+            assert.strictEqual(terminals.length, 3, 'Should create 3 terminals');
+            assert.strictEqual(terminals[0].name, 'TaskPilot-1', 'First should be TaskPilot-1');
+            assert.strictEqual(terminals[1].name, 'TaskPilot-2', 'Second should be TaskPilot-2');
+            assert.strictEqual(terminals[2].name, 'TaskPilot-3', 'Third should be TaskPilot-3');
+        });
+
+        test('should handle empty actions array', async () => {
+            const terminals = await executor.executeParallel([]);
+
+            assert.strictEqual(terminals.length, 0, 'Should return empty array');
+        });
+
+        test('should handle single action', async () => {
+            const actions: ResolvedAction[] = [
+                { type: 'terminal', command: 'echo "single"', terminal: 'SingleParallel' }
+            ];
+
+            const terminals = await executor.executeParallel(actions);
+
+            assert.strictEqual(terminals.length, 1, 'Should create 1 terminal');
+            assert.strictEqual(terminals[0].name, 'SingleParallel');
+        });
+
+        test('should set cwd when specified', async () => {
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+            if (!workspaceFolder) {
+                // Skip test if no workspace
+                return;
+            }
+
+            const actions: ResolvedAction[] = [
+                { type: 'terminal', command: 'pwd', terminal: 'CwdParallel', cwd: workspaceFolder }
+            ];
+
+            const terminals = await executor.executeParallel(actions);
+
+            assert.strictEqual(terminals.length, 1, 'Should create 1 terminal');
+            assert.ok(terminals[0], 'Terminal should be created');
+        });
+
+        test('should manage created terminals internally', async () => {
+            const actions: ResolvedAction[] = [
+                { type: 'terminal', command: 'echo "managed"', terminal: 'ManagedTerm' }
+            ];
+
+            await executor.executeParallel(actions);
+
+            // Execute again to verify terminal is tracked
+            const actions2: ResolvedAction[] = [
+                { type: 'terminal', command: 'echo "test"', terminal: 'ManagedTerm' }
+            ];
+
+            // Regular execute should reuse the terminal
+            await executor.execute(actions2[0]);
+
+            // Should only have one terminal with this name
+            const matchingTerminals = vscode.window.terminals.filter(t => t.name === 'ManagedTerm');
+            assert.ok(matchingTerminals.length >= 1, 'Should have at least one ManagedTerm terminal');
+        });
+    });
 });

@@ -288,6 +288,32 @@ export class ConfigManager implements vscode.Disposable {
     }
 
     /**
+     * メニューアイテムが並列アクションを持つかどうかを判定
+     */
+    hasParallelActions(item: MenuItem): boolean {
+        return !!item.parallel && item.parallel.length > 0;
+    }
+
+    /**
+     * メニューアイテムの並列アクションを解決
+     */
+    resolveParallelActions(item: MenuItem): ResolvedAction[] | null {
+        if (!item.parallel || item.parallel.length === 0) {
+            return null;
+        }
+
+        const resolved: ResolvedAction[] = [];
+        for (const actionDef of item.parallel) {
+            const action = this.resolveActionDefinition(actionDef);
+            if (action) {
+                resolved.push(action);
+            }
+        }
+
+        return resolved.length > 0 ? resolved : null;
+    }
+
+    /**
      * リソースを解放
      */
     dispose(): void {

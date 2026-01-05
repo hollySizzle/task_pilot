@@ -431,6 +431,135 @@ suite('ConfigManager Test Suite', () => {
             assert.strictEqual(manager.hasMultipleActions(item), false);
         });
     });
+
+    suite('hasParallelActions', () => {
+
+        test('should return true for item with parallel actions', () => {
+            const manager = new ConfigManager();
+
+            const item: MenuItem = {
+                label: 'Parallel',
+                parallel: [
+                    { type: 'terminal', command: 'rails server' },
+                    { type: 'terminal', command: 'webpack-dev-server' }
+                ]
+            };
+
+            assert.strictEqual(manager.hasParallelActions(item), true);
+        });
+
+        test('should return false for item without parallel array', () => {
+            const manager = new ConfigManager();
+
+            const item: MenuItem = {
+                label: 'No Parallel',
+                type: 'terminal',
+                command: 'npm run build'
+            };
+
+            assert.strictEqual(manager.hasParallelActions(item), false);
+        });
+
+        test('should return false for item with empty parallel array', () => {
+            const manager = new ConfigManager();
+
+            const item: MenuItem = {
+                label: 'Empty Parallel',
+                parallel: []
+            };
+
+            assert.strictEqual(manager.hasParallelActions(item), false);
+        });
+    });
+
+    suite('resolveParallelActions', () => {
+
+        test('should resolve parallel actions from array', () => {
+            const manager = new ConfigManager();
+            const config: MenuConfig = {
+                version: '1.0',
+                menu: [],
+                commands: {
+                    sidekiq: { type: 'terminal', command: 'bundle exec sidekiq' }
+                }
+            };
+            (manager as unknown as { config: MenuConfig }).config = config;
+
+            const item: MenuItem = {
+                label: 'Dev Environment',
+                parallel: [
+                    { type: 'terminal', command: 'rails server', terminal: 'Rails' },
+                    { ref: 'sidekiq' },
+                    { type: 'terminal', command: 'webpack-dev-server' }
+                ]
+            };
+
+            const actions = manager.resolveParallelActions(item);
+            assert.ok(actions !== null);
+            assert.strictEqual(actions!.length, 3);
+            assert.strictEqual(actions![0].command, 'rails server');
+            assert.strictEqual(actions![0].terminal, 'Rails');
+            assert.strictEqual(actions![1].command, 'bundle exec sidekiq');
+            assert.strictEqual(actions![2].command, 'webpack-dev-server');
+        });
+
+        test('should return null for item without parallel array', () => {
+            const manager = new ConfigManager();
+            const config: MenuConfig = {
+                version: '1.0',
+                menu: []
+            };
+            (manager as unknown as { config: MenuConfig }).config = config;
+
+            const item: MenuItem = {
+                label: 'No Parallel',
+                type: 'terminal',
+                command: 'npm run build'
+            };
+
+            const actions = manager.resolveParallelActions(item);
+            assert.strictEqual(actions, null);
+        });
+
+        test('should return null for empty parallel array', () => {
+            const manager = new ConfigManager();
+            const config: MenuConfig = {
+                version: '1.0',
+                menu: []
+            };
+            (manager as unknown as { config: MenuConfig }).config = config;
+
+            const item: MenuItem = {
+                label: 'Empty',
+                parallel: []
+            };
+
+            const actions = manager.resolveParallelActions(item);
+            assert.strictEqual(actions, null);
+        });
+
+        test('should skip invalid refs in parallel array', () => {
+            const manager = new ConfigManager();
+            const config: MenuConfig = {
+                version: '1.0',
+                menu: []
+            };
+            (manager as unknown as { config: MenuConfig }).config = config;
+
+            const item: MenuItem = {
+                label: 'Mixed',
+                parallel: [
+                    { type: 'terminal', command: 'echo "valid"' },
+                    { ref: 'nonexistent' },
+                    { type: 'terminal', command: 'echo "also valid"' }
+                ]
+            };
+
+            const actions = manager.resolveParallelActions(item);
+            assert.ok(actions !== null);
+            assert.strictEqual(actions!.length, 2);
+        });
+    });
 });
 
 /**

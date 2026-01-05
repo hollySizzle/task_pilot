@@ -305,6 +305,62 @@ export class ActionExecutor implements vscode.Disposable {
     }
 
     /**
+     * 並列アクションを分割ターミナルで実行
+     * @param actions 実行するアクションの配列
+     * @returns 作成されたターミナルの配列
+     */
+    async executeParallel(actions: ResolvedAction[]): Promise<vscode.Terminal[]> {
+        if (actions.length === 0) {
+            return [];
+        }
+
+        const createdTerminals: vscode.Terminal[] = [];
+        let parentTerminal: vscode.Terminal | undefined;
+
+        for (let i = 0; i < actions.length; i++) {
+            const action = actions[i];
+            const terminalName = action.terminal || `TaskPilot-${i + 1}`;
+
+            // ターミナルオプション
+            const options: vscode.TerminalOptions = {
+                name: terminalName
+            };
+
+            if (action.cwd) {
+                options.cwd = action.cwd;
+            }
+
+            // 最初のターミナルは通常作成、2つ目以降は分割
+            let terminal: vscode.Terminal;
+            if (i === 0) {
+                terminal = vscode.window.createTerminal(options);
+                parentTerminal = terminal;
+            } else {
+                // TerminalSplitLocationOptions を使用して分割
+                terminal = vscode.window.createTerminal({
+                    ...options,
+                    location: { parentTerminal: parentTerminal! }
+                });
+            }
+
+            this.terminals.set(terminalName, terminal);
+            createdTerminals.push(terminal);
+
+            // ターミナルアクションのみコマンドを送信
+            if (action.type === 'terminal') {
+                terminal.sendText(action.command);
+            }
+        }
+
+        // 最初のターミナルを表示（分割されたターミナルも一緒に表示される）
+        if (createdTerminals.length > 0) {
+            createdTerminals[0].show(true);
+        }
+
+        return createdTerminals;
+    }
+
+    /**
      * リソースを解放
      */
     dispose(): void {

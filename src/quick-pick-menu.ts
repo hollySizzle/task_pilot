@@ -54,8 +54,8 @@ export class QuickPickMenu {
         if (item.children && item.children.length > 0) {
             return false;
         }
-        // actions配列、refまたはtype+commandがあればアクション可能
-        return !!(item.actions || item.ref || (item.type && item.command));
+        // actions配列、parallel配列、refまたはtype+commandがあればアクション可能
+        return !!(item.actions || item.parallel || item.ref || (item.type && item.command));
     }
 
     /**
@@ -128,6 +128,23 @@ export class QuickPickMenu {
                 [...breadcrumb, menuItem.label]
             );
             return;
+        }
+
+        // 並列アクション実行
+        if (configManager.hasParallelActions(menuItem)) {
+            const parallelActions = configManager.resolveParallelActions(menuItem);
+            if (parallelActions && parallelActions.length > 0) {
+                try {
+                    const terminals = await actionExecutor.executeParallel(parallelActions);
+                    vscode.window.showInformationMessage(
+                        `TaskPilot: Started ${terminals.length} parallel terminal(s)`
+                    );
+                } catch (error) {
+                    const message = error instanceof Error ? error.message : String(error);
+                    vscode.window.showErrorMessage(`TaskPilot: ${message}`);
+                }
+                return;
+            }
         }
 
         // アクション実行

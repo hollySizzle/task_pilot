@@ -139,6 +139,13 @@ function validateMenuItems(items: unknown[], path: string, errors: ValidationErr
             if (menuItem.continueOnError !== undefined && typeof menuItem.continueOnError !== 'boolean') {
                 errors.push({ message: '"continueOnError" must be a boolean', path: `${itemPath}.continueOnError` });
             }
+        } else if (menuItem.parallel !== undefined) {
+            // Parallel actions (split terminals)
+            if (!Array.isArray(menuItem.parallel)) {
+                errors.push({ message: '"parallel" must be an array', path: `${itemPath}.parallel` });
+            } else {
+                validateActionsArray(menuItem.parallel, `${itemPath}.parallel`, errors);
+            }
         } else {
             // Must have ref or (type + command)
             validateAction(menuItem, itemPath, errors);

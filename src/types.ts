@@ -77,6 +77,10 @@ export interface MenuItem {
     actions?: ActionDefinition[];
     /** Continue executing remaining actions even if one fails */
     continueOnError?: boolean;
+
+    // Parallel actions (split terminals)
+    /** Array of actions to execute in parallel with split terminals */
+    parallel?: ActionDefinition[];
 }
 
 /**

@@ -351,4 +351,84 @@ menu:
             assert.ok(config.menu[0].children?.[1].description?.includes('🚀'));
         });
     });
+
+    suite('parseMenuConfig - Parallel Actions', () => {
+
+        test('should parse parallel property with refs', () => {
+            const yaml = `
+version: "1.0"
+commands:
+  rails_server:
+    type: terminal
+    command: rails server
+  webpack_dev:
+    type: terminal
+    command: webpack-dev-server
+menu:
+  - label: 開発環境起動
+    parallel:
+      - ref: rails_server
+      - ref: webpack_dev
+`;
+            const config = parseMenuConfig(yaml);
+            assert.strictEqual(config.menu[0].label, '開発環境起動');
+            assert.ok(config.menu[0].parallel, 'parallel should exist');
+            assert.strictEqual(config.menu[0].parallel!.length, 2);
+            assert.strictEqual(config.menu[0].parallel![0].ref, 'rails_server');
+            assert.strictEqual(config.menu[0].parallel![1].ref, 'webpack_dev');
+        });
+
+        test('should parse parallel property with inline actions', () => {
+            const yaml = `
+version: "1.0"
+menu:
+  - label: 並列テスト
+    parallel:
+      - type: terminal
+        command: echo "first"
+        terminal: Term1
+      - type: terminal
+        command: echo "second"
+        terminal: Term2
+`;
+            const config = parseMenuConfig(yaml);
+            assert.ok(config.menu[0].parallel);
+            assert.strictEqual(config.menu[0].parallel!.length, 2);
+            assert.strictEqual(config.menu[0].parallel![0].command, 'echo "first"');
+            assert.strictEqual(config.menu[0].parallel![1].terminal, 'Term2');
+        });
+
+        test('should reject invalid parallel property (not array)', () => {
+            const yaml = `
+version: "1.0"
+menu:
+  - label: Invalid
+    parallel: not-an-array
+`;
+            try {
+                parseMenuConfig(yaml);
+                assert.fail('Should have thrown');
+            } catch (error) {
+                assert.ok(error instanceof YamlParseError);
+                assert.ok(error.message.includes('"parallel" must be an array'));
+            }
+        });
+
+        test('should validate parallel array items', () => {
+            const yaml = `
+version: "1.0"
+menu:
+  - label: Invalid
+    parallel:
+      - type: terminal
+`;
+            try {
+                parseMenuConfig(yaml);
+                assert.fail('Should have thrown');
+            } catch (error) {
+                assert.ok(error instanceof YamlParseError);
+                assert.ok(error.message.includes('command'));
+            }
+        });
+    });
 });
