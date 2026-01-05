@@ -56,6 +56,9 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
                 case 'refresh':
                     this.refresh();
                     break;
+                case 'generateSample':
+                    await vscode.commands.executeCommand('taskPilot.generateSample');
+                    break;
             }
         });
 
@@ -301,6 +304,25 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
             color: var(--vscode-descriptionForeground);
         }
 
+        .empty-state .empty-hint {
+            font-size: 12px;
+            margin-bottom: 12px;
+        }
+
+        .empty-state .generate-btn {
+            padding: 8px 16px;
+            background: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .empty-state .generate-btn:hover {
+            background: var(--vscode-button-hoverBackground);
+        }
+
         .empty-state a {
             color: var(--vscode-textLink-foreground);
             cursor: pointer;
@@ -320,6 +342,10 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 
         function execute(path) {
             vscode.postMessage({ type: 'execute', path: path });
+        }
+
+        function generateSample() {
+            vscode.postMessage({ type: 'generateSample' });
         }
     </script>
 </body>
@@ -370,8 +396,9 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
      */
     private _getEmptyStateHtml(): string {
         return `<div class="empty-state">
-            <p>No menu items configured.</p>
-            <p>設定ファイル (.vscode/task-menu.yaml) を作成してください。</p>
+            <p>設定ファイルがありません</p>
+            <p class="empty-hint">サンプルから始めましょう</p>
+            <button class="generate-btn" onclick="generateSample()">サンプル設定を生成</button>
         </div>`;
     }
 
