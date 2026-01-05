@@ -300,6 +300,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
             justify-content: center;
             flex-shrink: 0;
             opacity: 0.8;
+            color: var(--vscode-foreground);
         }
 
         .menu-item .label-container {
