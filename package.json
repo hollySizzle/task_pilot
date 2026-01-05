@@ -2,10 +2,11 @@
   "name": "taskpilot",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "publisher": "hollySizzle",
   "license": "MIT",
   "icon": "resources/icon.png",
+  "extensionKind": ["workspace"],
   "repository": {
     "type": "git",
     "url": "https://github.com/hollySizzle/task_pilot.git"
