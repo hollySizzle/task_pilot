@@ -108,6 +108,23 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
             return;
         }
 
+        // 並列アクション実行
+        if (this._configManager.hasParallelActions(item)) {
+            const parallelActions = this._configManager.resolveParallelActions(item);
+            if (parallelActions && parallelActions.length > 0) {
+                try {
+                    const terminals = await this._actionExecutor.executeParallel(parallelActions);
+                    vscode.window.showInformationMessage(
+                        `TaskPilot: ${terminals.length}個の並列ターミナルを起動しました`
+                    );
+                } catch (error) {
+                    const message = error instanceof Error ? error.message : String(error);
+                    vscode.window.showErrorMessage(`TaskPilot: ${message}`);
+                }
+                return;
+            }
+        }
+
         // アクション実行（単一/複数対応）
         const actions = this._configManager.resolveActions(item);
         if (!actions || actions.length === 0) {
