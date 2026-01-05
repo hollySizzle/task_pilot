@@ -52,7 +52,8 @@ export function activate(context: vscode.ExtensionContext): void {
     sidebarProvider = new SidebarViewProvider(
         context.extensionUri,
         configManager,
-        actionExecutor
+        actionExecutor,
+        context
     );
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(
