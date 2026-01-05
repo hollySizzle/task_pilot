@@ -88,7 +88,17 @@
           "description": "Path to the YAML configuration file (relative to workspace root)"
         }
       }
-    }
+    },
+    "yamlValidation": [
+      {
+        "fileMatch": "**/task-menu.yaml",
+        "url": "./schemas/taskpilot.schema.json"
+      },
+      {
+        "fileMatch": "**/taskpilot.yaml",
+        "url": "./schemas/taskpilot.schema.json"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
@@ -105,7 +115,10 @@
     "test:webview:coverage": "jest --coverage",
     "test:all": "npm run test && npm run test:e2e && npm run test:webview",
     "test:all:coverage": "rimraf .c8_output && npm run compile:tsc && c8 --clean=false --reporter=none node ./out/test/runTest.js && c8 --clean=false --reporter=none node ./out/test/e2e/runTest.js && jest --coverage --coverageDirectory=.jest_output && c8 report --reporter=text --reporter=html",
-    "lint": "eslint src --ext ts"
+    "lint": "eslint src --ext ts",
+    "generate:schema": "ts-node scripts/generate-schema.ts",
+    "generate:samples": "ts-node scripts/generate-samples.ts",
+    "generate": "npm run generate:schema && npm run generate:samples"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
@@ -126,7 +139,10 @@
     "mocha": "^11.7.5",
     "rimraf": "^6.1.2",
     "sinon": "^21.0.1",
+    "ts-json-schema-generator": "^2.4.0",
     "ts-loader": "^9.5.1",
+    "ts-node": "^10.9.2",
+    "tslib": "^2.8.1",
     "typescript": "^5.3.0",
     "webpack": "^5.96.1",
     "webpack-cli": "^5.1.4"

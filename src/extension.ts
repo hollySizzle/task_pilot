@@ -9,7 +9,7 @@ import { ActionExecutor } from './action-executor';
 import { QuickPickMenu } from './quick-pick-menu';
 import { SidebarViewProvider } from './sidebar-view-provider';
 import { ConfigEditorPanel } from './config-editor-panel';
-import { generateSampleConfig } from './sample-generator';
+import { generateSampleConfig, setExtensionPath } from './sample-generator';
 
 /** ConfigManager インスタンス */
 let configManager: ConfigManager | undefined;
@@ -25,6 +25,9 @@ let sidebarProvider: SidebarViewProvider | undefined;
  */
 export function activate(context: vscode.ExtensionContext): void {
     console.log('TaskPilot extension is now active');
+
+    // Set extension path for sample generator (SSoT)
+    setExtensionPath(context.extensionPath);
 
     // Initialize ConfigManager
     configManager = new ConfigManager();

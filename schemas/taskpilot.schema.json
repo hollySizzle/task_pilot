@@ -1,0 +1,259 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://taskpilot.dev/schema/v1/taskpilot.schema.json",
+  "title": "TaskPilot Configuration",
+  "description": "ルート設定\n\nTaskPilotのYAML設定ファイルのルート構造。 `.vscode/taskpilot.yaml`に配置して使用します。",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "設定ファイルのバージョン\n\n現在は \"1.0\" を指定してください。",
+      "examples": [
+        "1.0"
+      ]
+    },
+    "commands": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/CommandDefinition"
+      },
+      "description": "再利用可能なコマンド定義\n\nここで定義したコマンドは、メニュー項目から`ref`で参照できます。 同じコマンドを複数の場所で使いたい場合に便利です。"
+    },
+    "menu": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/MenuItem"
+      },
+      "description": "メニュー構造\n\nサイドバーに表示されるメニュー項目の配列。 階層構造を持つことができます。"
+    }
+  },
+  "required": [
+    "version",
+    "menu"
+  ],
+  "additionalProperties": false,
+  "definitions": {
+    "CommandDefinition": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "#/definitions/ActionType",
+          "description": "アクションタイプ",
+          "examples": [
+            "terminal"
+          ]
+        },
+        "command": {
+          "type": "string",
+          "description": "実行するコマンド\n\n- `terminal`: シェルコマンド（例: `npm run build`）\n- `vscodeCommand`: VS CodeコマンドID（例: `workbench.action.openSettings`）\n- `task`: タスク名（例: `build`）",
+          "examples": [
+            "npm run build"
+          ]
+        },
+        "terminal": {
+          "type": "string",
+          "description": "ターミナル名（type: terminal の場合）\n\n指定するとそのターミナル名で新しいターミナルを作成または再利用します。 省略時は共有ターミナルを使用します。",
+          "examples": [
+            "server"
+          ]
+        },
+        "args": {
+          "type": "array",
+          "items": {},
+          "description": "コマンド引数（type: vscodeCommand の場合）\n\nVS Codeコマンドに渡す引数の配列。",
+          "examples": [
+            [
+              "extensionId"
+            ]
+          ]
+        },
+        "cwd": {
+          "type": "string",
+          "description": "作業ディレクトリ（type: terminal の場合）\n\nコマンドを実行するディレクトリ。相対パスはワークスペースルートからの相対パス。",
+          "examples": [
+            "./packages/app"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "description": "コマンドの説明\n\nUIに表示される説明文。",
+          "examples": [
+            "プロジェクトをビルドします"
+          ]
+        }
+      },
+      "required": [
+        "type",
+        "command"
+      ],
+      "additionalProperties": false,
+      "description": "コマンド定義\n\n`commands`セクションで定義する再利用可能なコマンド。 定義したコマンドはメニュー項目から`ref`で参照できます。"
+    },
+    "ActionType": {
+      "type": "string",
+      "enum": [
+        "terminal",
+        "vscodeCommand",
+        "task"
+      ],
+      "description": "アクションタイプ\n\nTaskPilotがサポートするアクションの種類を定義します。\n\n- `terminal`: ターミナルでシェルコマンドを実行\n- `vscodeCommand`: VS Codeの内蔵コマンドを実行\n- `task`: VS Codeのタスクを実行"
+    },
+    "MenuItem": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "表示ラベル（必須）\n\nサイドバーに表示されるメニュー項目の名前。",
+          "examples": [
+            "Build"
+          ]
+        },
+        "icon": {
+          "type": "string",
+          "description": "アイコン\n\nVS Code Codicon（`$(icon-name)`形式）または絵文字を指定。 Codiconの一覧: https://code.visualstudio.com/api/references/icons-in-labels",
+          "examples": [
+            "$(package)",
+            "🚀"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "description": "説明文\n\nメニュー項目の補足説明。ホバー時に表示されます。",
+          "examples": [
+            "プロジェクトをビルドします"
+          ]
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MenuItem"
+          },
+          "description": "子メニュー項目\n\n指定するとこの項目はカテゴリ（親メニュー）になります。 `children`を指定した場合、アクション関連のプロパティは無視されます。"
+        },
+        "ref": {
+          "type": "string",
+          "description": "コマンド参照\n\n`commands`セクションで定義したコマンド名を参照。",
+          "examples": [
+            "build"
+          ]
+        },
+        "type": {
+          "$ref": "#/definitions/ActionType",
+          "description": "アクションタイプ（ref未使用時）",
+          "examples": [
+            "terminal"
+          ]
+        },
+        "command": {
+          "type": "string",
+          "description": "実行するコマンド（ref未使用時）",
+          "examples": [
+            "npm run build"
+          ]
+        },
+        "terminal": {
+          "type": "string",
+          "description": "ターミナル名（type: terminal、ref未使用時）",
+          "examples": [
+            "server"
+          ]
+        },
+        "args": {
+          "type": "array",
+          "items": {},
+          "description": "コマンド引数（type: vscodeCommand、ref未使用時）"
+        },
+        "cwd": {
+          "type": "string",
+          "description": "作業ディレクトリ（type: terminal、ref未使用時）",
+          "examples": [
+            "./packages/app"
+          ]
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ActionDefinition"
+          },
+          "description": "順次実行アクション\n\n配列内のアクションを順番に実行します。 前のアクションが完了してから次のアクションを実行。"
+        },
+        "continueOnError": {
+          "type": "boolean",
+          "description": "エラー時も続行\n\n`actions`使用時、エラーが発生しても残りのアクションを実行し続けます。",
+          "default": false
+        },
+        "parallel": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ActionDefinition"
+          },
+          "description": "並列実行アクション\n\n配列内のアクションを同時に実行します。 ターミナルコマンドの場合、ターミナルを分割して表示。"
+        }
+      },
+      "required": [
+        "label"
+      ],
+      "additionalProperties": false,
+      "description": "メニュー項目\n\nサイドバーに表示されるメニュー項目の定義。 再帰的な構造で、子メニュー（children）を持つことができます。\n\n## 使用パターン\n\n1. **単一アクション**: `ref`、または`type`+`command`で直接定義 2. **カテゴリ（親メニュー）**: `children`で子メニューを定義 3. **順次実行**: `actions`で複数アクションを順番に実行 4. **並列実行**: `parallel`で複数アクションを同時実行（ターミナル分割）"
+    },
+    "ActionDefinition": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "description": "コマンド参照\n\n`commands`セクションで定義したコマンド名を参照します。 `ref`を使用する場合、他のプロパティ（type, command等）は不要です。",
+          "examples": [
+            "build"
+          ]
+        },
+        "type": {
+          "$ref": "#/definitions/ActionType",
+          "description": "アクションタイプ（ref未使用時）",
+          "examples": [
+            "terminal"
+          ]
+        },
+        "command": {
+          "type": "string",
+          "description": "実行するコマンド（ref未使用時）",
+          "examples": [
+            "npm run build"
+          ]
+        },
+        "terminal": {
+          "type": "string",
+          "description": "ターミナル名（type: terminal、ref未使用時）",
+          "examples": [
+            "server"
+          ]
+        },
+        "args": {
+          "type": "array",
+          "items": {},
+          "description": "コマンド引数（type: vscodeCommand、ref未使用時）",
+          "examples": [
+            [
+              "extensionId"
+            ]
+          ]
+        },
+        "cwd": {
+          "type": "string",
+          "description": "作業ディレクトリ（type: terminal、ref未使用時）",
+          "examples": [
+            "./packages/app"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "description": "アクションの説明",
+          "examples": [
+            "テストを実行"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "description": "アクション定義\n\n`actions`または`parallel`配列内で使用するアクションの定義。 `ref`でコマンドを参照するか、インラインでアクションを定義します。"
+    }
+  }
+}
