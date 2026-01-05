@@ -4,7 +4,7 @@
  */
 
 import * as vscode from 'vscode';
-import { MenuItem, MenuConfig } from './types';
+import { MenuItem } from './types';
 import { ConfigManager } from './config-manager';
 import { ActionExecutor } from './action-executor';
 
@@ -108,10 +108,51 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
             return;
         }
 
-        // アクション実行
-        const resolvedAction = this._resolveAction(item, config);
-        if (resolvedAction) {
-            await this._actionExecutor.execute(resolvedAction);
+        // アクション実行（単一/複数対応）
+        const actions = this._configManager.resolveActions(item);
+        if (!actions || actions.length === 0) {
+            vscode.window.showErrorMessage('TaskPilot: 実行可能なアクションがありません');
+            return;
+        }
+
+        if (actions.length === 1) {
+            // 単一アクション
+            try {
+                await this._actionExecutor.execute(actions[0]);
+            } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                vscode.window.showErrorMessage(`TaskPilot: ${message}`);
+            }
+        } else {
+            // 複数アクション - 進捗表示
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: `TaskPilot: ${item.label}`,
+                cancellable: true
+            }, async (progress, token) => {
+                const result = await this._actionExecutor.executeMultiple(actions, {
+                    continueOnError: item.continueOnError ?? false,
+                    cancellationToken: token,
+                    onProgress: (current, total, action) => {
+                        progress.report({
+                            increment: 100 / total,
+                            message: `(${current}/${total}) ${action.description || action.command}`
+                        });
+                    }
+                });
+
+                if (result.cancelled) {
+                    vscode.window.showWarningMessage(`TaskPilot: 実行がキャンセルされました (${result.completedCount}/${result.totalCount} 完了)`);
+                } else if (!result.success) {
+                    if (result.error) {
+                        vscode.window.showErrorMessage(`TaskPilot: ${result.error.message} (ステップ ${(result.failedIndex ?? 0) + 1})`);
+                    } else if (result.errors && result.errors.length > 0) {
+                        vscode.window.showWarningMessage(`TaskPilot: ${result.errors.length}件のエラーで完了`);
+                    }
+                } else {
+                    vscode.window.showInformationMessage(`TaskPilot: 全${result.totalCount}アクション完了`);
+                }
+            });
         }
     }
 
@@ -141,35 +182,6 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         return null;
     }
 
-    /**
-     * アクションを解決する
-     */
-    private _resolveAction(item: MenuItem, config: MenuConfig) {
-        if (item.ref && config.commands) {
-            const command = config.commands[item.ref];
-            if (command) {
-                return {
-                    type: command.type,
-                    command: command.command,
-                    terminal: command.terminal,
-                    args: command.args,
-                    cwd: command.cwd
-                };
-            }
-        }
-
-        if (item.type && item.command) {
-            return {
-                type: item.type,
-                command: item.command,
-                terminal: item.terminal,
-                args: item.args,
-                cwd: item.cwd
-            };
-        }
-
-        return null;
-    }
 
     /**
      * WebviewのHTMLを生成
