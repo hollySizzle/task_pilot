@@ -210,12 +210,18 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         const config = this._configManager.getConfig();
         const menuHtml = config ? this.getMenuItemsHtml(config.menu) : this._getEmptyStateHtml();
 
+        // Codicon フォントのURI
+        const codiconsUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this._extensionUri, 'node_modules', '@vscode', 'codicons', 'dist', 'codicon.css')
+        );
+
         return `<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'unsafe-inline';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; font-src ${webview.cspSource}; script-src 'unsafe-inline';">
+    <link href="${codiconsUri}" rel="stylesheet" />
     <title>TaskPilot</title>
     <style>
         body {
@@ -404,42 +410,18 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 
     /**
      * アイコンをフォーマット
+     * $(icon-name) 形式を <i class="codicon codicon-icon-name"></i> に変換
      */
     private _formatIcon(icon: string): string {
-        // Codicon形式の場合はそのまま返す（WebviewではCodiconは使えないので絵文字に変換）
-        const codiconMap: Record<string, string> = {
-            '$(folder)': '📁',
-            '$(terminal)': '💻',
-            '$(tools)': '🔧',
-            '$(package)': '📦',
-            '$(beaker)': '🧪',
-            '$(checklist)': '✅',
-            '$(git-branch)': '🌿',
-            '$(cloud-download)': '⬇️',
-            '$(cloud-upload)': '⬆️',
-            '$(info)': 'ℹ️',
-            '$(gear)': '⚙️',
-            '$(run)': '▶️',
-            '$(debug)': '🐛',
-            '$(file)': '📄',
-            '$(search)': '🔍',
-            '$(add)': '➕',
-            '$(trash)': '🗑️',
-            '$(edit)': '✏️',
-            '$(refresh)': '🔄',
-            '$(eye)': '👁️',
-            '$(versions)': '📚',
-            '$(history)': '🕐',
-            '$(sync)': '🔄',
-            '$(window)': '🪟',
-            '$(keyboard)': '⌨️',
-            '$(extensions)': '🧩',
-            '$(rocket)': '🚀',
-            '$(split-horizontal)': '⬌',
-            '$(list-tree)': '🌲'
-        };
+        // $(icon-name) 形式をcodicon HTMLに変換
+        const codiconMatch = icon.match(/^\$\(([^)]+)\)$/);
+        if (codiconMatch) {
+            const iconName = codiconMatch[1];
+            return `<i class="codicon codicon-${iconName}"></i>`;
+        }
 
-        return codiconMap[icon] || icon;
+        // 絵文字などはそのまま返す
+        return this._escapeHtml(icon);
     }
 
     /**
