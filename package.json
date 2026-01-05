@@ -1,8 +1,8 @@
 {
   "name": "taskpilot",
-  "displayName": "TaskPilot",
+  "displayName": "Task Pilot",
   "description": "Hierarchical task menu for VS Code - execute terminal commands, VS Code commands, and tasks from YAML configuration",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "publisher": "hollySizzle",
   "license": "MIT",
   "icon": "resources/icon.png",
