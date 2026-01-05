@@ -1,5 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  <!-- Paper airplane / pilot icon for TaskPilot -->
-  <path d="M22 2L11 13"/>
-  <path d="M22 2L15 22L11 13L2 9L22 2Z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Ship's wheel / helm for TaskPilot -->
+  <!-- Outer ring -->
+  <circle cx="12" cy="12" r="9"/>
+  <!-- Inner ring -->
+  <circle cx="12" cy="12" r="3"/>
+  <!-- Spokes (8 spokes) -->
+  <line x1="12" y1="3" x2="12" y2="9"/>
+  <line x1="12" y1="15" x2="12" y2="21"/>
+  <line x1="3" y1="12" x2="9" y2="12"/>
+  <line x1="15" y1="12" x2="21" y2="12"/>
+  <line x1="5.6" y1="5.6" x2="9.9" y2="9.9"/>
+  <line x1="14.1" y1="14.1" x2="18.4" y2="18.4"/>
+  <line x1="5.6" y1="18.4" x2="9.9" y2="14.1"/>
+  <line x1="14.1" y1="9.9" x2="18.4" y2="5.6"/>
 </svg>
