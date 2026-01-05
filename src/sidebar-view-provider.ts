@@ -22,13 +22,25 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     private _expandedItems: Set<string> = new Set();
 
     /** description表示フラグ */
-    private _showDescriptions: boolean = false;
+    private _showDescriptions: boolean = true;
+
+    /** 状態永続化用のキー */
+    private static readonly SHOW_DESCRIPTIONS_KEY = 'taskPilot.showDescriptions';
 
     constructor(
         private readonly _extensionUri: vscode.Uri,
         private readonly _configManager: ConfigManager,
-        private readonly _actionExecutor: ActionExecutor
-    ) {}
+        private readonly _actionExecutor: ActionExecutor,
+        private readonly _context?: vscode.ExtensionContext
+    ) {
+        // globalStateから状態を復元（デフォルトtrue）
+        if (_context) {
+            this._showDescriptions = _context.globalState.get(
+                SidebarViewProvider.SHOW_DESCRIPTIONS_KEY,
+                true
+            );
+        }
+    }
 
     /**
      * WebviewViewを解決する（VS Codeから呼ばれる）
@@ -64,6 +76,13 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
                     break;
                 case 'toggleDescriptions':
                     this._showDescriptions = !this._showDescriptions;
+                    // 状態を永続化
+                    if (this._context) {
+                        this._context.globalState.update(
+                            SidebarViewProvider.SHOW_DESCRIPTIONS_KEY,
+                            this._showDescriptions
+                        );
+                    }
                     this.refresh();
                     break;
             }
