@@ -9,6 +9,7 @@ import { ActionExecutor } from './action-executor';
 import { QuickPickMenu } from './quick-pick-menu';
 import { SidebarViewProvider } from './sidebar-view-provider';
 import { ConfigEditorPanel } from './config-editor-panel';
+import { generateSampleConfig } from './sample-generator';
 
 /** ConfigManager インスタンス */
 let configManager: ConfigManager | undefined;
@@ -117,6 +118,24 @@ export function activate(context: vscode.ExtensionContext): void {
     });
 
     context.subscriptions.push(openEditorCommand);
+
+    // Register generateSample command
+    const generateSampleCommand = vscode.commands.registerCommand('taskPilot.generateSample', async () => {
+        if (!configManager) {
+            vscode.window.showErrorMessage('TaskPilot: Extension not initialized');
+            return;
+        }
+
+        const configPath = configManager.getConfigPath();
+        if (!configPath) {
+            vscode.window.showErrorMessage('TaskPilot: ワークスペースフォルダが開かれていません');
+            return;
+        }
+
+        await generateSampleConfig(configPath);
+    });
+
+    context.subscriptions.push(generateSampleCommand);
 }
 
 /**
