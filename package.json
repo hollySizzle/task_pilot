@@ -66,6 +66,10 @@
         "command": "taskPilot.openEditor",
         "title": "TaskPilot: Open Config Editor",
         "icon": "$(edit)"
+      },
+      {
+        "command": "taskPilot.generateSample",
+        "title": "TaskPilot: サンプル設定を生成"
       }
     ],
     "keybindings": [
