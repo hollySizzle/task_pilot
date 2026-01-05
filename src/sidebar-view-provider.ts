@@ -21,6 +21,9 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     /** 展開状態を管理 */
     private _expandedItems: Set<string> = new Set();
 
+    /** description表示フラグ */
+    private _showDescriptions: boolean = false;
+
     constructor(
         private readonly _extensionUri: vscode.Uri,
         private readonly _configManager: ConfigManager,
@@ -58,6 +61,10 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
                     break;
                 case 'generateSample':
                     await vscode.commands.executeCommand('taskPilot.generateSample');
+                    break;
+                case 'toggleDescriptions':
+                    this._showDescriptions = !this._showDescriptions;
+                    this.refresh();
                     break;
             }
         });
@@ -208,7 +215,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
      */
     private _getHtmlForWebview(webview: vscode.Webview): string {
         const config = this._configManager.getConfig();
-        const menuHtml = config ? this.getMenuItemsHtml(config.menu) : this._getEmptyStateHtml();
+        const menuHtml = config ? this._getMenuWithToggleHtml(config.menu) : this._getEmptyStateHtml();
 
         // Codicon フォントのURI
         const codiconsUri = webview.asWebviewUri(
@@ -238,10 +245,11 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 
         .menu-item {
             display: flex;
-            align-items: center;
-            padding: 6px 12px;
+            align-items: flex-start;
+            padding: 3px 8px 3px 12px;
             cursor: pointer;
             user-select: none;
+            min-height: 22px;
         }
 
         .menu-item:hover {
@@ -253,20 +261,44 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         }
 
         .menu-item .icon {
-            margin-right: 8px;
+            margin-right: 6px;
             width: 16px;
+            height: 22px;
             text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
         }
 
         .menu-item .chevron {
-            margin-right: 4px;
+            margin-right: 2px;
             width: 16px;
+            height: 22px;
             text-align: center;
-            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            opacity: 0.8;
+        }
+
+        .menu-item .label-container {
+            flex: 1;
+            min-width: 0;
         }
 
         .menu-item .label {
-            flex: 1;
+            line-height: 22px;
+        }
+
+        .menu-item .description {
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground);
+            opacity: 0.8;
+            line-height: 1.3;
+            margin-top: 1px;
+            word-break: break-word;
         }
 
         .menu-item .run-btn {
@@ -297,11 +329,59 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         }
 
         .children .menu-item {
-            padding-left: 28px;
+            padding-left: 24px;
+            position: relative;
+        }
+
+        .children .menu-item::before {
+            content: '';
+            position: absolute;
+            left: 16px;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: var(--vscode-tree-indentGuidesStroke, rgba(128, 128, 128, 0.3));
         }
 
         .children .children .menu-item {
-            padding-left: 44px;
+            padding-left: 40px;
+        }
+
+        .children .children .menu-item::before {
+            left: 16px;
+        }
+
+        .children .children .menu-item::after {
+            content: '';
+            position: absolute;
+            left: 32px;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: var(--vscode-tree-indentGuidesStroke, rgba(128, 128, 128, 0.3));
+        }
+
+        /* description toggle button */
+        .description-toggle {
+            padding: 4px 8px;
+            margin: 4px 8px;
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground);
+            background: transparent;
+            border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.3));
+            border-radius: 3px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .description-toggle:hover {
+            background: var(--vscode-list-hoverBackground);
+        }
+
+        .description-toggle .codicon {
+            font-size: 12px;
         }
 
         .empty-state {
@@ -353,9 +433,29 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         function generateSample() {
             vscode.postMessage({ type: 'generateSample' });
         }
+
+        function toggleDescriptions() {
+            vscode.postMessage({ type: 'toggleDescriptions' });
+        }
     </script>
 </body>
 </html>`;
+    }
+
+    /**
+     * メニューとdescriptionトグルボタンのHTMLを生成
+     */
+    private _getMenuWithToggleHtml(items: MenuItem[]): string {
+        const toggleIcon = this._showDescriptions ? 'codicon-eye' : 'codicon-eye-closed';
+        const toggleLabel = this._showDescriptions ? '説明を隠す' : '説明を表示';
+
+        let html = `<button class="description-toggle" onclick="toggleDescriptions()">
+            <i class="codicon ${toggleIcon}"></i>
+            <span>${toggleLabel}</span>
+        </button>`;
+
+        html += this.getMenuItemsHtml(items);
+        return html;
     }
 
     /**
@@ -375,11 +475,20 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
             let html = `<div class="menu-item ${hasChildren ? 'category' : ''}" onclick="${hasChildren ? `toggle('${path}')` : `execute('${path}')`}">`;
 
             if (hasChildren) {
-                html += `<span class="chevron">${isExpanded ? '▼' : '▶'}</span>`;
+                const chevronIcon = isExpanded ? 'codicon-chevron-down' : 'codicon-chevron-right';
+                html += `<span class="chevron"><i class="codicon ${chevronIcon}"></i></span>`;
             }
 
             html += `<span class="icon">${this._formatIcon(icon)}</span>`;
-            html += `<span class="label">${this._escapeHtml(item.label)}</span>`;
+            html += `<span class="label-container">`;
+            html += `<div class="label">${this._escapeHtml(item.label)}</div>`;
+
+            // description表示（トグルがONの場合のみ）
+            if (this._showDescriptions && item.description) {
+                html += `<div class="description">${this._escapeHtml(item.description)}</div>`;
+            }
+
+            html += `</span>`;
 
             if (!hasChildren) {
                 html += `<button class="run-btn" onclick="event.stopPropagation(); execute('${path}')">Run</button>`;
