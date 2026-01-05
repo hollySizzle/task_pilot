@@ -4,7 +4,7 @@
  */
 
 import * as vscode from 'vscode';
-import { ResolvedAction, MultipleActionOptions, MultipleActionResult, ActionError } from './types';
+import { ResolvedAction, MultipleActionOptions, MultipleActionResult, ActionError, ActionGroup } from './types';
 
 /**
  * ActionExecutor - アクション実行クラス
@@ -141,7 +141,10 @@ export class ActionExecutor implements vscode.Disposable {
             return { success: true, completedCount: 0, totalCount: 0 };
         }
 
-        for (let i = 0; i < actions.length; i++) {
+        // ターミナルアクションをグループ化して実行
+        const groups = this.groupTerminalActions(actions);
+
+        for (const group of groups) {
             // キャンセルチェック
             if (cancellationToken?.isCancellationRequested) {
                 return {
@@ -152,26 +155,41 @@ export class ActionExecutor implements vscode.Disposable {
                 };
             }
 
-            const action = actions[i];
-
             try {
-                await this.execute(action);
-                completedCount++;
+                if (group.type === 'terminal-group') {
+                    // 同一ターミナルへの連続コマンドをまとめて実行
+                    await this.executeTerminalGroup(group.actions, group.terminalName);
 
-                // 進捗報告
-                if (onProgress) {
-                    onProgress(completedCount, totalCount, action);
+                    // グループ内の全アクションを完了としてカウント
+                    for (const action of group.actions) {
+                        completedCount++;
+                        if (onProgress) {
+                            onProgress(completedCount, totalCount, action);
+                        }
+                    }
+                } else {
+                    // 通常のアクションを実行
+                    await this.execute(group.action);
+                    completedCount++;
+
+                    if (onProgress) {
+                        onProgress(completedCount, totalCount, group.action);
+                    }
                 }
             } catch (error) {
                 const actionError: ActionError = {
-                    index: i,
-                    action,
+                    index: group.startIndex,
+                    action: group.type === 'terminal-group' ? group.actions[0] : group.action,
                     error: error instanceof Error ? error : new Error(String(error))
                 };
 
                 if (continueOnError) {
                     // エラーを記録して続行
                     errors.push(actionError);
+                    // グループの場合は全アクションを完了扱い
+                    if (group.type === 'terminal-group') {
+                        completedCount += group.actions.length;
+                    }
                 } else {
                     // 中断
                     return {
@@ -179,7 +197,7 @@ export class ActionExecutor implements vscode.Disposable {
                         completedCount,
                         totalCount,
                         error: actionError.error,
-                        failedIndex: i
+                        failedIndex: group.startIndex
                     };
                 }
             }
@@ -191,6 +209,99 @@ export class ActionExecutor implements vscode.Disposable {
             totalCount,
             errors: errors.length > 0 ? errors : undefined
         };
+    }
+
+    /**
+     * アクションをターミナルグループごとにまとめる
+     */
+    private groupTerminalActions(actions: ResolvedAction[]): ActionGroup[] {
+        const groups: ActionGroup[] = [];
+        let i = 0;
+
+        while (i < actions.length) {
+            const action = actions[i];
+
+            if (action.type === 'terminal') {
+                // 同一ターミナルへの連続するターミナルアクションを収集
+                const terminalName = action.terminal || 'TaskPilot';
+                const terminalActions: ResolvedAction[] = [action];
+                const startIndex = i;
+                i++;
+
+                while (i < actions.length) {
+                    const nextAction = actions[i];
+                    if (nextAction.type === 'terminal' &&
+                        (nextAction.terminal || 'TaskPilot') === terminalName) {
+                        terminalActions.push(nextAction);
+                        i++;
+                    } else {
+                        break;
+                    }
+                }
+
+                if (terminalActions.length > 1) {
+                    // 複数のターミナルアクションをグループ化
+                    groups.push({
+                        type: 'terminal-group',
+                        actions: terminalActions,
+                        terminalName,
+                        startIndex
+                    });
+                } else {
+                    // 単一アクションはそのまま
+                    groups.push({
+                        type: 'single',
+                        action: action,
+                        startIndex
+                    });
+                }
+            } else {
+                // ターミナル以外のアクション
+                groups.push({
+                    type: 'single',
+                    action: action,
+                    startIndex: i
+                });
+                i++;
+            }
+        }
+
+        return groups;
+    }
+
+    /**
+     * 同一ターミナルへの複数コマンドをまとめて実行
+     */
+    private async executeTerminalGroup(actions: ResolvedAction[], terminalName: string): Promise<void> {
+        // 既存のターミナルを探す
+        let terminal = this.terminals.get(terminalName);
+
+        // 既存ターミナルがなければ新規作成
+        if (!terminal) {
+            terminal = vscode.window.terminals.find(t => t.name === terminalName);
+
+            if (!terminal) {
+                // 新規作成（最初のアクションのcwdを使用）
+                const options: vscode.TerminalOptions = {
+                    name: terminalName
+                };
+
+                if (actions[0].cwd) {
+                    options.cwd = actions[0].cwd;
+                }
+
+                terminal = vscode.window.createTerminal(options);
+            }
+
+            this.terminals.set(terminalName, terminal);
+        }
+
+        // ターミナルを表示
+        terminal.show(true);
+
+        // コマンドを && で結合して送信
+        const combinedCommand = actions.map(a => a.command).join(' && ');
+        terminal.sendText(combinedCommand);
     }
 
     /**
