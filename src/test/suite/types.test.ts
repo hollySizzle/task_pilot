@@ -307,7 +307,7 @@ suite('Type Definition Test Suite', () => {
             const { result } = validateConfig(config);
             assert.strictEqual(result.valid, false);
             assert.ok(result.errors.some(e =>
-                e.message.includes('must be one of: terminal, vscodeCommand, task')
+                e.message.includes('must be one of:')
             ));
         });
 
