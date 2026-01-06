@@ -12,18 +12,24 @@ rules:
   #     このファイルを変更する場合は規約を確認してください
   - name: "css規約"
     patterns:
-      - "*/*.scss"
-      - "*/*/*.scss"
+      - "**/*.scss"
     severity: "block" # block: 完全ブロック, warn: 警告のみ
     token_threshold: 35000
     message: |
       このファイルを変更する場合は規約を確認してください
 
-  - name: "ts規約"
+  - name: "テスト規約"
     patterns:
-      - "*/*.tst"
-      - "*/*/*.ts"
+      - "**/test/**"
     severity: "block" # block: 完全ブロック, warn: 警告のみ
     token_threshold: 35000
     message: |
-      このファイルを変更する場合は規約を確認してください
+      テスト作成･修正が終わったら､テストカバレッジを確認してください
+
+  - name: "ts規約"
+    patterns:
+      - "**/src/**/*.ts"
+    severity: "block" # block: 完全ブロック, warn: 警告のみ
+    token_threshold: 35000
+    message: |
+      テスト作成･修正が終わったら､テストカバレッジを確認してください
