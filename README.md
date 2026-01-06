@@ -198,7 +198,7 @@ Open a folder in Dev Container (requires Remote - Containers extension):
 ```yaml
 - label: Open in Container
   type: openInDevContainer
-  path: /home/user/project
+  path: /home/user/project  # フルパス推奨（~は非推奨）、.devcontainerを含むディレクトリを指定
 ```
 
 ### Remote SSH
