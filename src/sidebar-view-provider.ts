@@ -86,6 +86,9 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
                     }
                     this.refresh();
                     break;
+                case 'openGlobalSettings':
+                    await vscode.commands.executeCommand('taskPilot.openGlobalSettings');
+                    break;
             }
         });
 
@@ -274,6 +277,10 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         function toggleDescriptions() {
             vscode.postMessage({ type: 'toggleDescriptions' });
         }
+
+        function openGlobalSettings() {
+            vscode.postMessage({ type: 'openGlobalSettings' });
+        }
     </script>
 </body>
 </html>`;
@@ -287,11 +294,17 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         const toggleLabel = this._showDescriptions
             ? vscode.l10n.t('Hide descriptions')
             : vscode.l10n.t('Show descriptions');
+        const globalSettingsLabel = vscode.l10n.t('Open Global Settings');
 
-        let html = `<button class="description-toggle" onclick="toggleDescriptions()">
-            <i class="codicon ${toggleIcon}"></i>
-            <span>${toggleLabel}</span>
-        </button>`;
+        let html = `<div class="toolbar">
+            <button class="description-toggle" onclick="toggleDescriptions()" title="${toggleLabel}">
+                <i class="codicon ${toggleIcon}"></i>
+                <span>${toggleLabel}</span>
+            </button>
+            <button class="global-settings-btn" onclick="openGlobalSettings()" title="${globalSettingsLabel}">
+                <i class="codicon codicon-gear"></i>
+            </button>
+        </div>`;
 
         html += this.getMenuItemsHtml(items);
         return html;

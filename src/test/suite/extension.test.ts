@@ -23,6 +23,7 @@ suite('Extension Test Suite', () => {
 
         const commands = await vscode.commands.getCommands();
         assert.ok(commands.includes('taskPilot.showMenu'), 'taskPilot.showMenu command should be registered');
+        assert.ok(commands.includes('taskPilot.openGlobalSettings'), 'taskPilot.openGlobalSettings command should be registered');
     });
 
     test('Configuration should have correct properties', () => {

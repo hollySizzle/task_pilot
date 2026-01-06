@@ -124,10 +124,18 @@
   }
 }
 
+// Toolbar
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--tp-space-xs);
+  padding: var(--tp-space-xs) var(--tp-space-sm);
+  margin-bottom: var(--tp-space-xs);
+}
+
 // Description Toggle Button
 .description-toggle {
   padding: var(--tp-space-xs) var(--tp-space-sm);
-  margin: var(--tp-space-xs) var(--tp-space-sm);
   font-size: var(--tp-font-sm);
   color: var(--tp-fg-description);
   background: transparent;
@@ -137,6 +145,26 @@
   display: flex;
   align-items: center;
   gap: var(--tp-space-xs);
+  flex: 1;
+
+  &:hover {
+    background: var(--tp-hover-bg);
+  }
+}
+
+// Global Settings Button
+.global-settings-btn {
+  padding: var(--tp-space-xs);
+  color: var(--tp-fg-description);
+  background: transparent;
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
 
   &:hover {
     background: var(--tp-hover-bg);

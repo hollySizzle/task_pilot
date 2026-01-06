@@ -24,6 +24,7 @@
   "All {0} actions completed": "全{0}アクション完了",
   "Hide descriptions": "説明を隠す",
   "Show descriptions": "説明を表示",
+  "Open Global Settings": "グローバル設定を開く",
   "No configuration file": "設定ファイルがありません",
   "Let's start with a sample": "サンプルから始めましょう",
   "Generate sample configuration": "サンプル設定を生成",

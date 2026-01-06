@@ -76,6 +76,11 @@
         "title": "%commands.generateSample.title%"
       },
       {
+        "command": "taskPilot.openGlobalSettings",
+        "title": "%commands.openGlobalSettings.title%",
+        "icon": "$(gear)"
+      },
+      {
         "command": "taskPilot.testDevContainer",
         "title": "TaskPilot: Test DevContainer (Debug)"
       }

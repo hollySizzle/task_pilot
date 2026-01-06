@@ -140,6 +140,13 @@ export function activate(context: vscode.ExtensionContext): void {
     });
 
     context.subscriptions.push(generateSampleCommand);
+
+    // Register openGlobalSettings command
+    const openGlobalSettingsCommand = vscode.commands.registerCommand('taskPilot.openGlobalSettings', async () => {
+        await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:hollySizzle.taskpilot taskPilot.globalMenu');
+    });
+
+    context.subscriptions.push(openGlobalSettingsCommand);
 }
 
 /**
