@@ -361,11 +361,12 @@ export class ConfigManager implements vscode.Disposable {
         }
 
         if (actionDef.type && actionDef.path) {
-            // Remote系アクション（openInDevContainer, openRemoteSSH）
+            // Remote系アクション（openInDevContainer, openRemoteSSH, openRemoteTunnel）
             return {
                 type: actionDef.type,
                 path: actionDef.path,
                 host: actionDef.host,
+                tunnelName: actionDef.tunnelName,
                 description: actionDef.description
             };
         }
