@@ -121,7 +121,7 @@
               },
               "type": {
                 "type": "string",
-                "enum": ["terminal", "vscodeCommand", "task", "openInDevContainer", "openRemoteSSH"],
+                "enum": ["terminal", "vscodeCommand", "task", "openInDevContainer", "openRemoteSSH", "openRemoteTunnel"],
                 "description": "Action type"
               },
               "command": {
@@ -143,6 +143,10 @@
               "host": {
                 "type": "string",
                 "description": "SSH host name (for openRemoteSSH)"
+              },
+              "tunnelName": {
+                "type": "string",
+                "description": "Tunnel name (for openRemoteTunnel)"
               },
               "children": {
                 "type": "array",

@@ -80,6 +80,27 @@
           "examples": [
             "プロジェクトをビルドします"
           ]
+        },
+        "path": {
+          "type": "string",
+          "description": "フォルダパス（type: openInDevContainer, openRemoteSSH の場合）\n\n開くフォルダの絶対パス。",
+          "examples": [
+            "/home/user/project"
+          ]
+        },
+        "host": {
+          "type": "string",
+          "description": "SSHホスト名（type: openRemoteSSH の場合）\n\n~/.ssh/config で定義されているHost名を指定。",
+          "examples": [
+            "my-server"
+          ]
+        },
+        "tunnelName": {
+          "type": "string",
+          "description": "トンネル名（type: openRemoteTunnel の場合）\n\nVS Code Remote Tunnelで登録されているトンネル名を指定。",
+          "examples": [
+            "my-tunnel"
+          ]
         }
       },
       "required": [
@@ -94,9 +115,12 @@
       "enum": [
         "terminal",
         "vscodeCommand",
-        "task"
+        "task",
+        "openInDevContainer",
+        "openRemoteSSH",
+        "openRemoteTunnel"
       ],
-      "description": "アクションタイプ\n\nTaskPilotがサポートするアクションの種類を定義します。\n\n- `terminal`: ターミナルでシェルコマンドを実行\n- `vscodeCommand`: VS Codeの内蔵コマンドを実行\n- `task`: VS Codeのタスクを実行"
+      "description": "アクションタイプ\n\nTaskPilotがサポートするアクションの種類を定義します。\n\n- `terminal`: ターミナルでシェルコマンドを実行\n- `vscodeCommand`: VS Codeの内蔵コマンドを実行\n- `task`: VS Codeのタスクを実行\n- `openInDevContainer`: DevContainerでフォルダを開く\n- `openRemoteSSH`: Remote-SSHでフォルダを開く\n- `openRemoteTunnel`: Remote Tunnelでフォルダを開く"
     },
     "MenuItem": {
       "type": "object",
@@ -168,6 +192,27 @@
           "description": "作業ディレクトリ（type: terminal、ref未使用時）",
           "examples": [
             "./packages/app"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "description": "フォルダパス（type: openInDevContainer, openRemoteSSH、ref未使用時）",
+          "examples": [
+            "/home/user/project"
+          ]
+        },
+        "host": {
+          "type": "string",
+          "description": "SSHホスト名（type: openRemoteSSH、ref未使用時）",
+          "examples": [
+            "my-server"
+          ]
+        },
+        "tunnelName": {
+          "type": "string",
+          "description": "トンネル名（type: openRemoteTunnel、ref未使用時）",
+          "examples": [
+            "my-tunnel"
           ]
         },
         "actions": {
@@ -249,6 +294,27 @@
           "description": "アクションの説明",
           "examples": [
             "テストを実行"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "description": "フォルダパス（type: openInDevContainer, openRemoteSSH、ref未使用時）",
+          "examples": [
+            "/home/user/project"
+          ]
+        },
+        "host": {
+          "type": "string",
+          "description": "SSHホスト名（type: openRemoteSSH、ref未使用時）",
+          "examples": [
+            "my-server"
+          ]
+        },
+        "tunnelName": {
+          "type": "string",
+          "description": "トンネル名（type: openRemoteTunnel、ref未使用時）",
+          "examples": [
+            "my-tunnel"
           ]
         }
       },

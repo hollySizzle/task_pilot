@@ -186,18 +186,21 @@ function validateActionDefinition(item: Record<string, unknown>, path: string, e
         errors.push({ message: 'Missing "type" or "ref" for action', path: `${path}.type` });
     } else if (!isValidActionType(item.type)) {
         errors.push({
-            message: '"type" must be one of: terminal, vscodeCommand, task, openInDevContainer, openRemoteSSH',
+            message: '"type" must be one of: terminal, vscodeCommand, task, openInDevContainer, openRemoteSSH, openRemoteTunnel',
             path: `${path}.type`
         });
     }
 
-    // openInDevContainer/openRemoteSSH は path を使用、それ以外は command を使用
-    if (item.type === 'openInDevContainer' || item.type === 'openRemoteSSH') {
+    // openInDevContainer/openRemoteSSH/openRemoteTunnel は path を使用、それ以外は command を使用
+    if (item.type === 'openInDevContainer' || item.type === 'openRemoteSSH' || item.type === 'openRemoteTunnel') {
         if (!item.path || typeof item.path !== 'string') {
             errors.push({ message: 'Missing or invalid "path" field', path: `${path}.path` });
         }
         if (item.type === 'openRemoteSSH' && (!item.host || typeof item.host !== 'string')) {
             errors.push({ message: 'Missing or invalid "host" field', path: `${path}.host` });
+        }
+        if (item.type === 'openRemoteTunnel' && (!item.tunnelName || typeof item.tunnelName !== 'string')) {
+            errors.push({ message: 'Missing or invalid "tunnelName" field', path: `${path}.tunnelName` });
         }
     } else if (!item.command || typeof item.command !== 'string') {
         errors.push({ message: 'Missing or invalid "command" field', path: `${path}.command` });
@@ -238,18 +241,21 @@ function validateAction(item: Record<string, unknown>, path: string, errors: Val
         errors.push({ message: 'Missing "type" or "ref" for action item', path: `${path}.type` });
     } else if (!isValidActionType(item.type)) {
         errors.push({
-            message: '"type" must be one of: terminal, vscodeCommand, task, openInDevContainer, openRemoteSSH',
+            message: '"type" must be one of: terminal, vscodeCommand, task, openInDevContainer, openRemoteSSH, openRemoteTunnel',
             path: `${path}.type`
         });
     }
 
-    // openInDevContainer/openRemoteSSH は path を使用、それ以外は command を使用
-    if (item.type === 'openInDevContainer' || item.type === 'openRemoteSSH') {
+    // openInDevContainer/openRemoteSSH/openRemoteTunnel は path を使用、それ以外は command を使用
+    if (item.type === 'openInDevContainer' || item.type === 'openRemoteSSH' || item.type === 'openRemoteTunnel') {
         if (!item.path || typeof item.path !== 'string') {
             errors.push({ message: 'Missing or invalid "path" field', path: `${path}.path` });
         }
         if (item.type === 'openRemoteSSH' && (!item.host || typeof item.host !== 'string')) {
             errors.push({ message: 'Missing or invalid "host" field', path: `${path}.host` });
+        }
+        if (item.type === 'openRemoteTunnel' && (!item.tunnelName || typeof item.tunnelName !== 'string')) {
+            errors.push({ message: 'Missing or invalid "tunnelName" field', path: `${path}.tunnelName` });
         }
     } else if (!item.command || typeof item.command !== 'string') {
         errors.push({ message: 'Missing or invalid "command" field', path: `${path}.command` });
@@ -276,8 +282,8 @@ function validateAction(item: Record<string, unknown>, path: string, errors: Val
 /**
  * アクションタイプが有効かチェック
  */
-function isValidActionType(type: unknown): type is 'terminal' | 'vscodeCommand' | 'task' | 'openInDevContainer' | 'openRemoteSSH' {
-    return type === 'terminal' || type === 'vscodeCommand' || type === 'task' || type === 'openInDevContainer' || type === 'openRemoteSSH';
+function isValidActionType(type: unknown): type is 'terminal' | 'vscodeCommand' | 'task' | 'openInDevContainer' | 'openRemoteSSH' | 'openRemoteTunnel' {
+    return type === 'terminal' || type === 'vscodeCommand' || type === 'task' || type === 'openInDevContainer' || type === 'openRemoteSSH' || type === 'openRemoteTunnel';
 }
 
 /**
@@ -298,7 +304,7 @@ function validateCommands(commands: Record<string, unknown>, errors: ValidationE
             errors.push({ message: 'Missing "type" field', path: `${path}.type` });
         } else if (!isValidActionType(cmdDef.type)) {
             errors.push({
-                message: '"type" must be one of: terminal, vscodeCommand, task, openInDevContainer, openRemoteSSH',
+                message: '"type" must be one of: terminal, vscodeCommand, task, openInDevContainer, openRemoteSSH, openRemoteTunnel',
                 path: `${path}.type`
             });
         }

@@ -126,3 +126,9 @@ menu:
         type: openRemoteSSH
         path: /home/user/project
         host: my-server  # ~/.ssh/config で定義したHost名
+      - label: Remote Tunnel
+        icon: "$(radio-tower)"
+        description: Remote Tunnel経由でリモートマシンを開く
+        type: openRemoteTunnel
+        path: /home/user/project
+        tunnelName: my-tunnel  # VS Code CLI で登録したトンネル名

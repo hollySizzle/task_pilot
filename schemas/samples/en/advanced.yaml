@@ -126,3 +126,9 @@ menu:
         type: openRemoteSSH
         path: /home/user/project
         host: my-server  # Host name from ~/.ssh/config
+      - label: Remote Tunnel
+        icon: "$(radio-tower)"
+        description: Open remote machine via Remote Tunnel
+        type: openRemoteTunnel
+        path: /home/user/project
+        tunnelName: my-tunnel  # Tunnel name registered with VS Code CLI

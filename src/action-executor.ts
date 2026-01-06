@@ -42,6 +42,7 @@ export class ActionExecutor implements vscode.Disposable {
                 break;
             case 'openInDevContainer':
             case 'openRemoteSSH':
+            case 'openRemoteTunnel':
                 if (!action.path) {
                     throw new Error('Action path is required');
                 }
@@ -63,6 +64,9 @@ export class ActionExecutor implements vscode.Disposable {
                 break;
             case 'openRemoteSSH':
                 await this.executeOpenRemoteSSH(action);
+                break;
+            case 'openRemoteTunnel':
+                await this.executeOpenRemoteTunnel(action);
                 break;
             default:
                 throw new Error(`Unknown action type: ${(action as { type: string }).type}`);
@@ -177,6 +181,27 @@ export class ActionExecutor implements vscode.Disposable {
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             throw new Error(`Failed to open folder via SSH: ${message}`);
+        }
+    }
+
+    /**
+     * Remote Tunnelでフォルダを開く
+     */
+    private async executeOpenRemoteTunnel(action: ResolvedAction): Promise<void> {
+        if (!action.path) {
+            throw new Error('Path is required for openRemoteTunnel');
+        }
+        if (!action.tunnelName) {
+            throw new Error('TunnelName is required for openRemoteTunnel');
+        }
+
+        try {
+            // vscode-remote://tunnel+{tunnelName}{path} 形式のURIを作成
+            const remoteUri = vscode.Uri.parse(`vscode-remote://tunnel+${action.tunnelName}${action.path}`);
+            await vscode.commands.executeCommand('vscode.openFolder', remoteUri);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to open folder via Remote Tunnel: ${message}`);
         }
     }
 

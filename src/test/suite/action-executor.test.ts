@@ -269,6 +269,56 @@ suite('ActionExecutor Test Suite', () => {
         });
     });
 
+    suite('Remote Actions - openRemoteTunnel', () => {
+        test('should throw error when path is missing', async () => {
+            const action: ResolvedAction = {
+                type: 'openRemoteTunnel',
+                tunnelName: 'my-tunnel'
+            };
+
+            try {
+                await executor.execute(action);
+                assert.fail('Should throw error for missing path');
+            } catch (error) {
+                assert.ok(error instanceof Error);
+                assert.ok((error as Error).message.includes('path') ||
+                         (error as Error).message.includes('Path'));
+            }
+        });
+
+        test('should throw error when tunnelName is missing', async () => {
+            const action: ResolvedAction = {
+                type: 'openRemoteTunnel',
+                path: '/home/user/project'
+            };
+
+            try {
+                await executor.execute(action);
+                assert.fail('Should throw error for missing tunnelName');
+            } catch (error) {
+                assert.ok(error instanceof Error);
+                assert.ok((error as Error).message.includes('tunnelName') ||
+                         (error as Error).message.includes('TunnelName'));
+            }
+        });
+
+        test('should attempt to execute vscode.openFolder with tunnel URI', async () => {
+            const action: ResolvedAction = {
+                type: 'openRemoteTunnel',
+                path: '/home/user/project',
+                tunnelName: 'test-tunnel'
+            };
+
+            try {
+                await executor.execute(action);
+                // Command may fail if tunnel not available, which is expected
+            } catch (error) {
+                // Expected - tunnel may not be available
+                assert.ok(error instanceof Error);
+            }
+        });
+    });
+
     suite('Multiple Actions Sequential Execution', () => {
         test('should execute multiple actions sequentially', async () => {
             const actions: ResolvedAction[] = [

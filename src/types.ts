@@ -18,6 +18,7 @@
  * - `task`: VS Codeのタスクを実行
  * - `openInDevContainer`: DevContainerでフォルダを開く
  * - `openRemoteSSH`: Remote-SSHでフォルダを開く
+ * - `openRemoteTunnel`: Remote Tunnelでフォルダを開く
  *
  * @example
  * ```yaml
@@ -37,8 +38,15 @@
  * path: /home/user/project
  * host: my-server
  * ```
+ *
+ * @example
+ * ```yaml
+ * type: openRemoteTunnel
+ * path: /home/user/project
+ * tunnelName: my-tunnel
+ * ```
  */
-export type ActionType = 'terminal' | 'vscodeCommand' | 'task' | 'openInDevContainer' | 'openRemoteSSH';
+export type ActionType = 'terminal' | 'vscodeCommand' | 'task' | 'openInDevContainer' | 'openRemoteSSH' | 'openRemoteTunnel';
 
 /**
  * コマンド定義
@@ -130,6 +138,15 @@ export interface CommandDefinition {
      * @example "my-server"
      */
     host?: string;
+
+    /**
+     * トンネル名（type: openRemoteTunnel の場合）
+     *
+     * VS Code Remote Tunnelで登録されているトンネル名を指定。
+     *
+     * @example "my-tunnel"
+     */
+    tunnelName?: string;
 }
 
 /**
@@ -204,6 +221,12 @@ export interface ActionDefinition {
      * @example "my-server"
      */
     host?: string;
+
+    /**
+     * トンネル名（type: openRemoteTunnel、ref未使用時）
+     * @example "my-tunnel"
+     */
+    tunnelName?: string;
 }
 
 /**
@@ -341,6 +364,12 @@ export interface MenuItem {
      */
     host?: string;
 
+    /**
+     * トンネル名（type: openRemoteTunnel、ref未使用時）
+     * @example "my-tunnel"
+     */
+    tunnelName?: string;
+
     // --- 複数アクション ---
 
     /**
@@ -438,10 +467,12 @@ export interface ResolvedAction {
     cwd?: string;
     /** 説明 */
     description?: string;
-    /** フォルダパス（openInDevContainer, openRemoteSSH で使用） */
+    /** フォルダパス（openInDevContainer, openRemoteSSH, openRemoteTunnel で使用） */
     path?: string;
     /** SSHホスト名（openRemoteSSH で使用） */
     host?: string;
+    /** トンネル名（openRemoteTunnel で使用） */
+    tunnelName?: string;
 }
 
 /**
