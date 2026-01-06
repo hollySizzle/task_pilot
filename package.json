@@ -74,6 +74,10 @@
       {
         "command": "taskPilot.generateSample",
         "title": "%commands.generateSample.title%"
+      },
+      {
+        "command": "taskPilot.testDevContainer",
+        "title": "TaskPilot: Test DevContainer (Debug)"
       }
     ],
     "keybindings": [

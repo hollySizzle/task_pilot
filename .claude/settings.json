@@ -1,8 +1,68 @@
 {
   "statusLine": {
     "type": "command",
-    "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/statusline.js"
+    "command": "node /myapp/Source/rails/vibes/claude_nagger/others/statusline.js"
   },
-  "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": ["redmine_epic_grid"]
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "claude-nagger hook session-startup"
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__.*__write.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "claude-nagger hook implementation-design"
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__.*replace.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "claude-nagger hook implementation-design"
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__.*insert.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "claude-nagger hook implementation-design"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m infrastructure.notifiers.discord_notifier \"📢 Claude Code から通知があります\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m infrastructure.notifiers.discord_notifier \"🛑 Claude Code セッションが停止されました\""
+          }
+        ]
+      }
+    ]
+  }
 }

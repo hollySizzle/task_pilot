@@ -1,0 +1,29 @@
+# ファイル編集規約定義
+# 特定のファイルパターンに対して適用される規約を定義します
+
+rules:
+  # 例: View層編集規約
+  # - name: "View層編集規約"
+  #   patterns:
+  #     - "**/app/views/**/*.erb"
+  #   severity: "block"  # block: 完全ブロック, warn: 警告のみ
+  #   token_threshold: 35000
+  #   message: |
+  #     このファイルを変更する場合は規約を確認してください
+  - name: "css規約"
+    patterns:
+      - "*/*.scss"
+      - "*/*/*.scss"
+    severity: "block" # block: 完全ブロック, warn: 警告のみ
+    token_threshold: 35000
+    message: |
+      このファイルを変更する場合は規約を確認してください
+
+  - name: "ts規約"
+    patterns:
+      - "*/*.tst"
+      - "*/*/*.ts"
+    severity: "block" # block: 完全ブロック, warn: 警告のみ
+    token_threshold: 35000
+    message: |
+      このファイルを変更する場合は規約を確認してください

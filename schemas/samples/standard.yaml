@@ -1,0 +1,62 @@
+# TaskPilot - 標準構成サンプル
+# ref（参照）とchildren（子メニュー）の使用例
+# Generated from types.ts (SSoT)
+
+# コマンド定義
+commands:
+  build:
+    type: terminal
+    command: npm run build
+    description: プロジェクトをビルド
+  test:
+    type: terminal
+    command: npm test
+    description: テストを実行
+  lint:
+    type: terminal
+    command: npm run lint
+    description: Lintチェック
+
+version: "1.0"
+
+# children: 子メニュー項目
+menu:
+  - label: Development
+    icon: "$(tools)"
+    description: 開発用コマンド
+    children:
+      # ref: コマンド参照
+      - label: Build
+        icon: "$(package)"
+        ref: build
+      - label: Test
+        icon: "$(beaker)"
+        ref: test
+      - label: Lint
+        icon: "$(checklist)"
+        ref: lint
+      - label: Watch
+        icon: "$(eye)"
+        type: terminal
+        command: npm run watch
+
+  - label: Git
+    icon: "$(git-branch)"
+    children:
+      - label: Status
+        icon: "$(info)"
+        type: terminal
+        command: git status
+      - label: Pull
+        icon: "$(cloud-download)"
+        type: terminal
+        command: git pull
+      - label: Push
+        icon: "$(cloud-upload)"
+        type: terminal
+        command: git push
+
+  - label: Settings
+    icon: "$(gear)"
+    type: vscodeCommand
+    command: workbench.action.openSettings
