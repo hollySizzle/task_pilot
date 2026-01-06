@@ -16,14 +16,29 @@
  * - `terminal`: ターミナルでシェルコマンドを実行
  * - `vscodeCommand`: VS Codeの内蔵コマンドを実行
  * - `task`: VS Codeのタスクを実行
+ * - `openInDevContainer`: DevContainerでフォルダを開く
+ * - `openRemoteSSH`: Remote-SSHでフォルダを開く
  *
  * @example
  * ```yaml
  * type: terminal
  * command: npm run build
  * ```
+ *
+ * @example
+ * ```yaml
+ * type: openInDevContainer
+ * path: /home/user/project
+ * ```
+ *
+ * @example
+ * ```yaml
+ * type: openRemoteSSH
+ * path: /home/user/project
+ * host: my-server
+ * ```
  */
-export type ActionType = 'terminal' | 'vscodeCommand' | 'task';
+export type ActionType = 'terminal' | 'vscodeCommand' | 'task' | 'openInDevContainer' | 'openRemoteSSH';
 
 /**
  * コマンド定義
@@ -97,6 +112,24 @@ export interface CommandDefinition {
      * @example "プロジェクトをビルドします"
      */
     description?: string;
+
+    /**
+     * フォルダパス（type: openInDevContainer, openRemoteSSH の場合）
+     *
+     * 開くフォルダの絶対パス。
+     *
+     * @example "/home/user/project"
+     */
+    path?: string;
+
+    /**
+     * SSHホスト名（type: openRemoteSSH の場合）
+     *
+     * ~/.ssh/config で定義されているHost名を指定。
+     *
+     * @example "my-server"
+     */
+    host?: string;
 }
 
 /**
@@ -159,6 +192,18 @@ export interface ActionDefinition {
      * @example "テストを実行"
      */
     description?: string;
+
+    /**
+     * フォルダパス（type: openInDevContainer, openRemoteSSH、ref未使用時）
+     * @example "/home/user/project"
+     */
+    path?: string;
+
+    /**
+     * SSHホスト名（type: openRemoteSSH、ref未使用時）
+     * @example "my-server"
+     */
+    host?: string;
 }
 
 /**
@@ -284,6 +329,18 @@ export interface MenuItem {
      */
     cwd?: string;
 
+    /**
+     * フォルダパス（type: openInDevContainer, openRemoteSSH、ref未使用時）
+     * @example "/home/user/project"
+     */
+    path?: string;
+
+    /**
+     * SSHホスト名（type: openRemoteSSH、ref未使用時）
+     * @example "my-server"
+     */
+    host?: string;
+
     // --- 複数アクション ---
 
     /**
@@ -371,8 +428,8 @@ export interface MenuConfig {
 export interface ResolvedAction {
     /** アクションタイプ */
     type: ActionType;
-    /** 実行コマンド */
-    command: string;
+    /** 実行コマンド（terminal, vscodeCommand, task で使用） */
+    command?: string;
     /** ターミナル名 */
     terminal?: string;
     /** コマンド引数 */
@@ -381,6 +438,10 @@ export interface ResolvedAction {
     cwd?: string;
     /** 説明 */
     description?: string;
+    /** フォルダパス（openInDevContainer, openRemoteSSH で使用） */
+    path?: string;
+    /** SSHホスト名（openRemoteSSH で使用） */
+    host?: string;
 }
 
 /**

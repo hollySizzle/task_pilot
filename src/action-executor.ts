@@ -32,8 +32,20 @@ export class ActionExecutor implements vscode.Disposable {
      * アクションを実行
      */
     async execute(action: ResolvedAction): Promise<void> {
-        if (!action.command) {
-            throw new Error('Action command is required');
+        switch (action.type) {
+            case 'terminal':
+            case 'vscodeCommand':
+            case 'task':
+                if (!action.command) {
+                    throw new Error('Action command is required');
+                }
+                break;
+            case 'openInDevContainer':
+            case 'openRemoteSSH':
+                if (!action.path) {
+                    throw new Error('Action path is required');
+                }
+                break;
         }
 
         switch (action.type) {
@@ -45,6 +57,12 @@ export class ActionExecutor implements vscode.Disposable {
                 break;
             case 'task':
                 await this.executeTask(action);
+                break;
+            case 'openInDevContainer':
+                await this.executeOpenInDevContainer(action);
+                break;
+            case 'openRemoteSSH':
+                await this.executeOpenRemoteSSH(action);
                 break;
             default:
                 throw new Error(`Unknown action type: ${(action as { type: string }).type}`);
@@ -85,7 +103,7 @@ export class ActionExecutor implements vscode.Disposable {
         terminal.show(true);
 
         // コマンドを送信
-        terminal.sendText(action.command);
+        terminal.sendText(action.command!);
     }
 
     /**
@@ -95,7 +113,7 @@ export class ActionExecutor implements vscode.Disposable {
         const args = action.args || [];
 
         try {
-            await vscode.commands.executeCommand(action.command, ...args);
+            await vscode.commands.executeCommand(action.command!, ...args);
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             throw new Error(`Failed to execute command "${action.command}": ${message}`);
@@ -122,6 +140,44 @@ export class ActionExecutor implements vscode.Disposable {
 
         // タスクを実行
         await vscode.tasks.executeTask(task);
+    }
+
+    /**
+     * DevContainerでフォルダを開く
+     */
+    private async executeOpenInDevContainer(action: ResolvedAction): Promise<void> {
+        if (!action.path) {
+            throw new Error('Path is required for openInDevContainer');
+        }
+
+        try {
+            const folderUri = vscode.Uri.file(action.path);
+            await vscode.commands.executeCommand('remote-containers.openFolder', folderUri);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to open folder in DevContainer: ${message}`);
+        }
+    }
+
+    /**
+     * Remote-SSHでフォルダを開く
+     */
+    private async executeOpenRemoteSSH(action: ResolvedAction): Promise<void> {
+        if (!action.path) {
+            throw new Error('Path is required for openRemoteSSH');
+        }
+        if (!action.host) {
+            throw new Error('Host is required for openRemoteSSH');
+        }
+
+        try {
+            // vscode-remote://ssh-remote+{host}{path} 形式のURIを作成
+            const remoteUri = vscode.Uri.parse(`vscode-remote://ssh-remote+${action.host}${action.path}`);
+            await vscode.commands.executeCommand('vscode.openFolder', remoteUri);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to open folder via SSH: ${message}`);
+        }
     }
 
     /**
@@ -347,7 +403,7 @@ export class ActionExecutor implements vscode.Disposable {
             createdTerminals.push(terminal);
 
             // ターミナルアクションのみコマンドを送信
-            if (action.type === 'terminal') {
+            if (action.type === 'terminal' && action.command) {
                 terminal.sendText(action.command);
             }
         }

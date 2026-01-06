@@ -201,13 +201,23 @@ export class ConfigManager implements vscode.Disposable {
         }
 
         if (item.type && item.command) {
-            // インラインアクション
+            // インラインアクション（terminal, vscodeCommand, task）
             return {
                 type: item.type,
                 command: item.command,
                 terminal: item.terminal,
                 args: item.args,
                 cwd: item.cwd,
+                description: item.description
+            };
+        }
+
+        if (item.type && item.path) {
+            // Remote系アクション（openInDevContainer, openRemoteSSH）
+            return {
+                type: item.type,
+                path: item.path,
+                host: item.host,
                 description: item.description
             };
         }
@@ -225,7 +235,9 @@ export class ConfigManager implements vscode.Disposable {
             terminal: cmd.terminal,
             args: cmd.args,
             cwd: cmd.cwd,
-            description: cmd.description
+            description: cmd.description,
+            path: cmd.path,
+            host: cmd.host
         };
     }
 
@@ -283,13 +295,23 @@ export class ConfigManager implements vscode.Disposable {
         }
 
         if (actionDef.type && actionDef.command) {
-            // インラインアクション
+            // インラインアクション（terminal, vscodeCommand, task）
             return {
                 type: actionDef.type,
                 command: actionDef.command,
                 terminal: actionDef.terminal,
                 args: actionDef.args,
                 cwd: actionDef.cwd,
+                description: actionDef.description
+            };
+        }
+
+        if (actionDef.type && actionDef.path) {
+            // Remote系アクション（openInDevContainer, openRemoteSSH）
+            return {
+                type: actionDef.type,
+                path: actionDef.path,
+                host: actionDef.host,
                 description: actionDef.description
             };
         }
