@@ -32,4 +32,4 @@ rules:
     severity: "block" # block: 完全ブロック, warn: 警告のみ
     token_threshold: 35000
     message: |
-      テスト作成･修正が終わったら､テストカバレッジを確認してください
+      CSSはインラインでなく､scssに書くこと
