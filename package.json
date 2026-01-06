@@ -2,7 +2,7 @@
   "name": "taskpilot",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "publisher": "hollySizzle",
   "license": "MIT",
   "icon": "resources/icon.png",
