@@ -678,6 +678,190 @@ suite('ConfigManager Test Suite', () => {
 });
 
 /**
+ * グローバルメニュー機能テスト (#4035)
+ *
+ * ユーザー設定のグローバルメニューとワークスペースメニューのマージ
+ */
+suite('Global Menu Test Suite', () => {
+
+    suite('mergeMenus - メニューマージ', () => {
+
+        test('should return workspace menu when global menu is empty', () => {
+            const manager = new ConfigManager();
+            const workspaceMenu: MenuItem[] = [
+                { label: 'Build', type: 'terminal', command: 'npm run build' }
+            ];
+            const globalMenu: MenuItem[] = [];
+
+            const mergeMenus = (manager as unknown as { mergeMenus: (a: MenuItem[], b: MenuItem[]) => MenuItem[] }).mergeMenus.bind(manager);
+            const result = mergeMenus(workspaceMenu, globalMenu);
+
+            assert.strictEqual(result.length, 1);
+            assert.strictEqual(result[0].label, 'Build');
+        });
+
+        test('should merge global menu items after workspace menu', () => {
+            const manager = new ConfigManager();
+            const workspaceMenu: MenuItem[] = [
+                { label: 'Build', type: 'terminal', command: 'npm run build' }
+            ];
+            const globalMenu: MenuItem[] = [
+                { label: 'SSH Dev Server', type: 'openRemoteSSH', path: '/home/user', host: 'dev' }
+            ];
+
+            const mergeMenus = (manager as unknown as { mergeMenus: (a: MenuItem[], b: MenuItem[]) => MenuItem[] }).mergeMenus.bind(manager);
+            const result = mergeMenus(workspaceMenu, globalMenu);
+
+            assert.strictEqual(result.length, 2);
+            assert.strictEqual(result[0].label, 'Build');
+            assert.strictEqual(result[1].label, 'SSH Dev Server');
+        });
+
+        test('should skip duplicate labels from global menu (workspace priority)', () => {
+            const manager = new ConfigManager();
+            const workspaceMenu: MenuItem[] = [
+                { label: 'Build', type: 'terminal', command: 'npm run build' },
+                { label: 'Test', type: 'terminal', command: 'npm test' }
+            ];
+            const globalMenu: MenuItem[] = [
+                { label: 'Build', type: 'terminal', command: 'make build' }, // 重複 - スキップされる
+                { label: 'Deploy', type: 'terminal', command: 'npm run deploy' }
+            ];
+
+            const mergeMenus = (manager as unknown as { mergeMenus: (a: MenuItem[], b: MenuItem[]) => MenuItem[] }).mergeMenus.bind(manager);
+            const result = mergeMenus(workspaceMenu, globalMenu);
+
+            assert.strictEqual(result.length, 3);
+            assert.strictEqual(result[0].label, 'Build');
+            assert.strictEqual(result[0].command, 'npm run build'); // ワークスペース版が優先
+            assert.strictEqual(result[1].label, 'Test');
+            assert.strictEqual(result[2].label, 'Deploy');
+        });
+
+        test('should return empty array when both menus are empty', () => {
+            const manager = new ConfigManager();
+            const workspaceMenu: MenuItem[] = [];
+            const globalMenu: MenuItem[] = [];
+
+            const mergeMenus = (manager as unknown as { mergeMenus: (a: MenuItem[], b: MenuItem[]) => MenuItem[] }).mergeMenus.bind(manager);
+            const result = mergeMenus(workspaceMenu, globalMenu);
+
+            assert.strictEqual(result.length, 0);
+        });
+
+        test('should return global menu when workspace menu is empty', () => {
+            const manager = new ConfigManager();
+            const workspaceMenu: MenuItem[] = [];
+            const globalMenu: MenuItem[] = [
+                { label: 'Global Item', type: 'terminal', command: 'echo global' }
+            ];
+
+            const mergeMenus = (manager as unknown as { mergeMenus: (a: MenuItem[], b: MenuItem[]) => MenuItem[] }).mergeMenus.bind(manager);
+            const result = mergeMenus(workspaceMenu, globalMenu);
+
+            assert.strictEqual(result.length, 1);
+            assert.strictEqual(result[0].label, 'Global Item');
+        });
+    });
+
+    suite('getConfig - グローバルメニューマージ', () => {
+
+        test('should return workspace config when no global menu', () => {
+            const manager = new ConfigManager();
+            const config: MenuConfig = {
+                version: '1.0',
+                menu: [{ label: 'Build', type: 'terminal', command: 'npm run build' }]
+            };
+            (manager as unknown as { config: MenuConfig }).config = config;
+
+            // getGlobalMenu をモック（空配列を返す）
+            (manager as unknown as { getGlobalMenu: () => MenuItem[] }).getGlobalMenu = () => [];
+
+            const result = manager.getConfig();
+            assert.ok(result !== null);
+            assert.strictEqual(result!.menu.length, 1);
+            assert.strictEqual(result!.menu[0].label, 'Build');
+        });
+
+        test('should return virtual config with global menu when no workspace config', () => {
+            const manager = new ConfigManager();
+            // config は null のまま
+
+            // getGlobalMenu をモック
+            (manager as unknown as { getGlobalMenu: () => MenuItem[] }).getGlobalMenu = () => [
+                { label: 'Global SSH', type: 'openRemoteSSH', path: '/home', host: 'server' }
+            ];
+
+            const result = manager.getConfig();
+            assert.ok(result !== null);
+            assert.strictEqual(result!.version, '1.0');
+            assert.strictEqual(result!.menu.length, 1);
+            assert.strictEqual(result!.menu[0].label, 'Global SSH');
+        });
+
+        test('should return null when no workspace config and no global menu', () => {
+            const manager = new ConfigManager();
+            // config は null のまま
+
+            // getGlobalMenu をモック（空配列）
+            (manager as unknown as { getGlobalMenu: () => MenuItem[] }).getGlobalMenu = () => [];
+
+            const result = manager.getConfig();
+            assert.strictEqual(result, null);
+        });
+
+        test('should merge workspace and global menus', () => {
+            const manager = new ConfigManager();
+            const config: MenuConfig = {
+                version: '1.0',
+                menu: [{ label: 'Build', type: 'terminal', command: 'npm run build' }],
+                commands: {
+                    test: { type: 'terminal', command: 'npm test' }
+                }
+            };
+            (manager as unknown as { config: MenuConfig }).config = config;
+
+            // getGlobalMenu をモック
+            (manager as unknown as { getGlobalMenu: () => MenuItem[] }).getGlobalMenu = () => [
+                { label: 'SSH Server', type: 'openRemoteSSH', path: '/home', host: 'dev' }
+            ];
+
+            const result = manager.getConfig();
+            assert.ok(result !== null);
+            assert.strictEqual(result!.menu.length, 2);
+            assert.strictEqual(result!.menu[0].label, 'Build');
+            assert.strictEqual(result!.menu[1].label, 'SSH Server');
+            // commands も保持される
+            assert.ok(result!.commands !== undefined);
+            assert.ok(result!.commands!['test'] !== undefined);
+        });
+    });
+
+    suite('getWorkspaceConfig', () => {
+
+        test('should return only workspace config without global menu', () => {
+            const manager = new ConfigManager();
+            const config: MenuConfig = {
+                version: '1.0',
+                menu: [{ label: 'Build' }]
+            };
+            (manager as unknown as { config: MenuConfig }).config = config;
+
+            const result = manager.getWorkspaceConfig();
+            assert.ok(result !== null);
+            assert.strictEqual(result!.menu.length, 1);
+        });
+
+        test('should return null when no workspace config', () => {
+            const manager = new ConfigManager();
+
+            const result = manager.getWorkspaceConfig();
+            assert.strictEqual(result, null);
+        });
+    });
+});
+
+/**
  * 設定パス指定機能テスト (#3884)
  *
  * パス解決ロジックのユニットテスト

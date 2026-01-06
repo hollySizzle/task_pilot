@@ -9,5 +9,6 @@
   "commands.openEditor.title": "TaskPilot: 設定エディタを開く",
   "commands.generateSample.title": "TaskPilot: サンプル設定を生成",
   "configuration.title": "TaskPilot",
-  "configuration.configPath.description": "YAML設定ファイルのパス（ワークスペースルートからの相対パス）"
+  "configuration.configPath.description": "YAML設定ファイルのパス（ワークスペースルートからの相対パス）",
+  "configuration.globalMenu.description": "全ワークスペースで使用可能なグローバルメニュー項目。ワークスペース固有のメニュー項目とマージされます。"
 }

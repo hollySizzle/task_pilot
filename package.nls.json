@@ -9,5 +9,6 @@
   "commands.openEditor.title": "TaskPilot: Open Config Editor",
   "commands.generateSample.title": "TaskPilot: Generate Sample Configuration",
   "configuration.title": "TaskPilot",
-  "configuration.configPath.description": "Path to the YAML configuration file (relative to workspace root)"
+  "configuration.configPath.description": "Path to the YAML configuration file (relative to workspace root)",
+  "configuration.globalMenu.description": "Global menu items available across all workspaces. These items are merged with workspace-specific menu items."
 }

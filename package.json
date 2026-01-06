@@ -94,6 +94,61 @@
           "type": "string",
           "default": ".vscode/task-menu.yaml",
           "description": "%configuration.configPath.description%"
+        },
+        "taskPilot.globalMenu": {
+          "type": "array",
+          "default": [],
+          "markdownDescription": "%configuration.globalMenu.description%",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string",
+                "description": "Menu item label"
+              },
+              "icon": {
+                "type": "string",
+                "description": "VS Code Codicon (e.g., $(terminal)) or emoji"
+              },
+              "description": {
+                "type": "string",
+                "description": "Description shown on hover"
+              },
+              "type": {
+                "type": "string",
+                "enum": ["terminal", "vscodeCommand", "task", "openInDevContainer", "openRemoteSSH"],
+                "description": "Action type"
+              },
+              "command": {
+                "type": "string",
+                "description": "Command to execute"
+              },
+              "terminal": {
+                "type": "string",
+                "description": "Terminal name (for terminal type)"
+              },
+              "cwd": {
+                "type": "string",
+                "description": "Working directory (for terminal type)"
+              },
+              "path": {
+                "type": "string",
+                "description": "Folder path (for openInDevContainer/openRemoteSSH)"
+              },
+              "host": {
+                "type": "string",
+                "description": "SSH host name (for openRemoteSSH)"
+              },
+              "children": {
+                "type": "array",
+                "description": "Child menu items",
+                "items": {
+                  "$ref": "#/properties/taskPilot.globalMenu/items"
+                }
+              }
+            },
+            "required": ["label"]
+          }
         }
       }
     },

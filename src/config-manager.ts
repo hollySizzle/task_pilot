@@ -35,12 +35,41 @@ export class ConfigManager implements vscode.Disposable {
     }
 
     /**
+     * グローバルメニュー（ユーザー設定）を取得
+     */
+    getGlobalMenu(): MenuItem[] {
+        const globalMenu = vscode.workspace
+            .getConfiguration('taskPilot')
+            .get<MenuItem[]>('globalMenu', []);
+        return globalMenu;
+    }
+
+    /**
+     * ワークスペースメニューとグローバルメニューをマージ
+     * 重複（同じラベル）はワークスペース設定を優先
+     */
+    private mergeMenus(workspaceMenu: MenuItem[], globalMenu: MenuItem[]): MenuItem[] {
+        if (globalMenu.length === 0) {
+            return workspaceMenu;
+        }
+
+        // ワークスペースメニューのトップレベルラベルを収集
+        const workspaceLabels = new Set(workspaceMenu.map(item => item.label));
+
+        // グローバルメニューから重複を除外してマージ
+        const uniqueGlobalItems = globalMenu.filter(item => !workspaceLabels.has(item.label));
+
+        // グローバルメニューをワークスペースメニューの後に追加
+        return [...workspaceMenu, ...uniqueGlobalItems];
+    }
+
+    /**
      * ConfigManagerを初期化し、設定ファイルの監視を開始
      */
     async initialize(): Promise<void> {
         // VS Code設定の変更監視
         this.configWatcher = vscode.workspace.onDidChangeConfiguration(e => {
-            if (e.affectsConfiguration('taskPilot.configPath')) {
+            if (e.affectsConfiguration('taskPilot.configPath') || e.affectsConfiguration('taskPilot.globalMenu')) {
                 this.reloadConfig();
             }
         });
@@ -174,9 +203,34 @@ export class ConfigManager implements vscode.Disposable {
     }
 
     /**
-     * 現在の設定を取得
+     * 現在の設定を取得（グローバルメニューをマージ済み）
      */
     getConfig(): MenuConfig | null {
+        const globalMenu = this.getGlobalMenu();
+
+        // ワークスペース設定がない場合
+        if (!this.config) {
+            // グローバルメニューがあれば仮想的なMenuConfigを返す
+            if (globalMenu.length > 0) {
+                return {
+                    version: '1.0',
+                    menu: globalMenu
+                };
+            }
+            return null;
+        }
+
+        // ワークスペース設定とグローバルメニューをマージ
+        return {
+            ...this.config,
+            menu: this.mergeMenus(this.config.menu, globalMenu)
+        };
+    }
+
+    /**
+     * ワークスペース設定のみを取得（マージなし）
+     */
+    getWorkspaceConfig(): MenuConfig | null {
         return this.config;
     }
 
