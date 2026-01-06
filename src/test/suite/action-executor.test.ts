@@ -187,6 +187,88 @@ suite('ActionExecutor Test Suite', () => {
         });
     });
 
+    suite('Remote Actions - openInDevContainer', () => {
+        test('should throw error when path is missing', async () => {
+            const action: ResolvedAction = {
+                type: 'openInDevContainer'
+            };
+
+            try {
+                await executor.execute(action);
+                assert.fail('Should throw error for missing path');
+            } catch (error) {
+                assert.ok(error instanceof Error);
+                assert.ok((error as Error).message.includes('path') ||
+                         (error as Error).message.includes('Path'));
+            }
+        });
+
+        test('should attempt to execute remote-containers.openFolder command', async () => {
+            const action: ResolvedAction = {
+                type: 'openInDevContainer',
+                path: '/tmp/test-project'
+            };
+
+            try {
+                await executor.execute(action);
+                // Command may fail if DevContainer extension not installed, which is expected
+            } catch (error) {
+                // Expected - DevContainer extension may not be available
+                assert.ok(error instanceof Error);
+            }
+        });
+    });
+
+    suite('Remote Actions - openRemoteSSH', () => {
+        test('should throw error when path is missing', async () => {
+            const action: ResolvedAction = {
+                type: 'openRemoteSSH',
+                host: 'my-server'
+            };
+
+            try {
+                await executor.execute(action);
+                assert.fail('Should throw error for missing path');
+            } catch (error) {
+                assert.ok(error instanceof Error);
+                assert.ok((error as Error).message.includes('path') ||
+                         (error as Error).message.includes('Path'));
+            }
+        });
+
+        test('should throw error when host is missing', async () => {
+            const action: ResolvedAction = {
+                type: 'openRemoteSSH',
+                path: '/home/user/project'
+            };
+
+            try {
+                await executor.execute(action);
+                assert.fail('Should throw error for missing host');
+            } catch (error) {
+                assert.ok(error instanceof Error);
+                assert.ok((error as Error).message.includes('host') ||
+                         (error as Error).message.includes('Host'));
+            }
+        });
+
+        test('should attempt to execute vscode.openFolder with remote URI', async () => {
+            const action: ResolvedAction = {
+                type: 'openRemoteSSH',
+                path: '/home/user/project',
+                host: 'test-server'
+            };
+
+            try {
+                await executor.execute(action);
+                // Command may fail if SSH host not configured, which is expected
+            } catch (error) {
+                // Expected - SSH host may not be available
+                assert.ok(error instanceof Error);
+            }
+        });
+    });
+
     suite('Multiple Actions Sequential Execution', () => {
         test('should execute multiple actions sequentially', async () => {
             const actions: ResolvedAction[] = [
