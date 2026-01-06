@@ -10,6 +10,7 @@ Hierarchical task menu for VS Code - execute terminal commands, VS Code commands
   - Terminal commands (with named terminals)
   - VS Code commands (with arguments)
   - tasks.json tasks
+  - Remote actions (Dev Container, SSH)
 - **YAML Configuration**: Easy-to-edit configuration file
 - **Command Reuse**: Define commands once, reference from multiple menus (`ref` feature)
 - **Auto Reload**: Configuration changes are automatically detected
@@ -188,6 +189,27 @@ Execute tasks defined in tasks.json:
 - label: Run Build Task
   type: task
   command: build  # Task name from tasks.json
+```
+
+### Dev Container
+
+Open a folder in Dev Container (requires Remote - Containers extension):
+
+```yaml
+- label: Open in Container
+  type: openInDevContainer
+  path: /home/user/project
+```
+
+### Remote SSH
+
+Open a folder via SSH (requires Remote - SSH extension):
+
+```yaml
+- label: Open Remote Project
+  type: openRemoteSSH
+  path: /home/user/project
+  host: my-server  # Host from ~/.ssh/config
 ```
 
 ## Requirements

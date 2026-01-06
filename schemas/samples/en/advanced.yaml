@@ -109,3 +109,20 @@ menu:
     type: terminal
     command: npm install
     cwd: ./packages/subproject
+
+  # Remote actions (advanced)
+  - label: Remote
+    icon: "$(remote)"
+    description: Open remote environments
+    children:
+      - label: Dev Container
+        icon: "$(vm)"
+        description: Open project in DevContainer
+        type: openInDevContainer
+        path: /home/user/my-project
+      - label: SSH Server
+        icon: "$(remote-explorer)"
+        description: Open remote server via SSH
+        type: openRemoteSSH
+        path: /home/user/project
+        host: my-server  # Host name from ~/.ssh/config

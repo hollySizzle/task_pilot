@@ -109,3 +109,20 @@ menu:
     type: terminal
     command: npm install
     cwd: ./packages/subproject
+
+  # Remote系アクション（上級者向け）
+  - label: Remote
+    icon: "$(remote)"
+    description: リモート環境を開く
+    children:
+      - label: Dev Container
+        icon: "$(vm)"
+        description: DevContainerでプロジェクトを開く
+        type: openInDevContainer
+        path: /home/user/my-project
+      - label: SSH Server
+        icon: "$(remote-explorer)"
+        description: SSH経由でリモートサーバーを開く
+        type: openRemoteSSH
+        path: /home/user/project
+        host: my-server  # ~/.ssh/config で定義したHost名
