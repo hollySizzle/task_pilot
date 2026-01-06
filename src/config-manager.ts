@@ -292,7 +292,8 @@ export class ConfigManager implements vscode.Disposable {
             cwd: cmd.cwd,
             description: cmd.description,
             path: cmd.path,
-            host: cmd.host
+            host: cmd.host,
+            tunnelName: cmd.tunnelName
         };
     }
 

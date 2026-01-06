@@ -505,7 +505,279 @@ suite('ConfigManager Test Suite', () => {
         });
     });
 
-    suite('hasMultipleActions', () => {
+    /**
+ * Remote系アクション統合テスト (#4063)
+ *
+ * resolveAction/resolveActionDefinitionでRemote系プロパティ（path, host, tunnelName）が
+ * 正しく引き継がれることを検証する。issue #4058でtunnelNameの欠落バグが発覚したため追加。
+ */
+suite('resolveAction - Remote系アクション統合テスト', () => {
+
+    test('should resolve openRemoteSSH action with host and path', () => {
+        const manager = new ConfigManager();
+        const config: MenuConfig = {
+            version: '1.0',
+            menu: []
+        };
+        (manager as unknown as { config: MenuConfig }).config = config;
+
+        const item: MenuItem = {
+            label: 'Connect to Dev Server',
+            type: 'openRemoteSSH',
+            path: '/home/developer/project',
+            host: 'dev-server',
+            description: 'Open project on dev server'
+        };
+
+        const action = manager.resolveAction(item);
+        assert.ok(action !== null);
+        assert.strictEqual(action!.type, 'openRemoteSSH');
+        assert.strictEqual(action!.path, '/home/developer/project');
+        assert.strictEqual(action!.host, 'dev-server');
+        assert.strictEqual(action!.description, 'Open project on dev server');
+    });
+
+    test('should resolve openRemoteTunnel action with tunnelName and path', () => {
+        const manager = new ConfigManager();
+        const config: MenuConfig = {
+            version: '1.0',
+            menu: []
+        };
+        (manager as unknown as { config: MenuConfig }).config = config;
+
+        const item: MenuItem = {
+            label: 'Connect via Tunnel',
+            type: 'openRemoteTunnel',
+            path: '/home/user/workspace',
+            tunnelName: 'my-dev-tunnel',
+            description: 'Open via remote tunnel'
+        };
+
+        const action = manager.resolveAction(item);
+        assert.ok(action !== null);
+        assert.strictEqual(action!.type, 'openRemoteTunnel');
+        assert.strictEqual(action!.path, '/home/user/workspace');
+        assert.strictEqual(action!.tunnelName, 'my-dev-tunnel');
+        assert.strictEqual(action!.description, 'Open via remote tunnel');
+    });
+
+    test('should resolve openInDevContainer action with path', () => {
+        const manager = new ConfigManager();
+        const config: MenuConfig = {
+            version: '1.0',
+            menu: []
+        };
+        (manager as unknown as { config: MenuConfig }).config = config;
+
+        const item: MenuItem = {
+            label: 'Open in DevContainer',
+            type: 'openInDevContainer',
+            path: '/workspaces/my-project',
+            description: 'Open in dev container'
+        };
+
+        const action = manager.resolveAction(item);
+        assert.ok(action !== null);
+        assert.strictEqual(action!.type, 'openInDevContainer');
+        assert.strictEqual(action!.path, '/workspaces/my-project');
+        assert.strictEqual(action!.description, 'Open in dev container');
+    });
+
+    test('should resolve openRemoteTunnel via ref with tunnelName preserved', () => {
+        const manager = new ConfigManager();
+        const config: MenuConfig = {
+            version: '1.0',
+            menu: [],
+            commands: {
+                tunnel_workspace: {
+                    type: 'openRemoteTunnel',
+                    command: '', // Remote系はcommand不要だがtype定義上必須
+                    path: '/home/user/project',
+                    tunnelName: 'work-tunnel',
+                    description: 'Connect to work tunnel'
+                }
+            }
+        };
+        (manager as unknown as { config: MenuConfig }).config = config;
+
+        const item: MenuItem = {
+            label: 'Work Tunnel',
+            ref: 'tunnel_workspace'
+        };
+
+        const action = manager.resolveAction(item);
+        assert.ok(action !== null, 'Action should not be null');
+        assert.strictEqual(action!.type, 'openRemoteTunnel');
+        assert.strictEqual(action!.path, '/home/user/project');
+        assert.strictEqual(action!.tunnelName, 'work-tunnel', 'tunnelName should be preserved via ref');
+        assert.strictEqual(action!.description, 'Connect to work tunnel');
+    });
+
+    test('should resolve openRemoteSSH via ref with host preserved', () => {
+        const manager = new ConfigManager();
+        const config: MenuConfig = {
+            version: '1.0',
+            menu: [],
+            commands: {
+                ssh_server: {
+                    type: 'openRemoteSSH',
+                    command: '',
+                    path: '/var/www/app',
+                    host: 'production-server',
+                    description: 'Connect to prod'
+                }
+            }
+        };
+        (manager as unknown as { config: MenuConfig }).config = config;
+
+        const item: MenuItem = {
+            label: 'Production',
+            ref: 'ssh_server'
+        };
+
+        const action = manager.resolveAction(item);
+        assert.ok(action !== null, 'Action should not be null');
+        assert.strictEqual(action!.type, 'openRemoteSSH');
+        assert.strictEqual(action!.path, '/var/www/app');
+        assert.strictEqual(action!.host, 'production-server', 'host should be preserved via ref');
+        assert.strictEqual(action!.description, 'Connect to prod');
+    });
+});
+
+suite('resolveActionDefinition - Remote系アクション統合テスト', () => {
+
+    test('should resolve openRemoteTunnel in actions array with tunnelName', () => {
+        const manager = new ConfigManager();
+        const config: MenuConfig = {
+            version: '1.0',
+            menu: []
+        };
+        (manager as unknown as { config: MenuConfig }).config = config;
+
+        const item: MenuItem = {
+            label: 'Setup Environment',
+            actions: [
+                {
+                    type: 'openRemoteTunnel',
+                    path: '/home/dev/workspace',
+                    tunnelName: 'dev-tunnel',
+                    description: 'Open tunnel workspace'
+                }
+            ]
+        };
+
+        const actions = manager.resolveActions(item);
+        assert.ok(actions !== null);
+        assert.strictEqual(actions!.length, 1);
+        assert.strictEqual(actions![0].type, 'openRemoteTunnel');
+        assert.strictEqual(actions![0].path, '/home/dev/workspace');
+        assert.strictEqual(actions![0].tunnelName, 'dev-tunnel', 'tunnelName should be preserved in actions array');
+    });
+
+    test('should resolve openRemoteSSH in parallel array with host', () => {
+        const manager = new ConfigManager();
+        const config: MenuConfig = {
+            version: '1.0',
+            menu: []
+        };
+        (manager as unknown as { config: MenuConfig }).config = config;
+
+        const item: MenuItem = {
+            label: 'Open Multiple Remotes',
+            parallel: [
+                {
+                    type: 'openRemoteSSH',
+                    path: '/home/user/project1',
+                    host: 'server1',
+                    description: 'Server 1'
+                },
+                {
+                    type: 'openRemoteSSH',
+                    path: '/home/user/project2',
+                    host: 'server2',
+                    description: 'Server 2'
+                }
+            ]
+        };
+
+        const actions = manager.resolveParallelActions(item);
+        assert.ok(actions !== null);
+        assert.strictEqual(actions!.length, 2);
+        assert.strictEqual(actions![0].type, 'openRemoteSSH');
+        assert.strictEqual(actions![0].host, 'server1', 'host should be preserved in parallel array');
+        assert.strictEqual(actions![1].host, 'server2', 'host should be preserved in parallel array');
+    });
+
+    test('should resolve openRemoteTunnel via ref in actions array', () => {
+        const manager = new ConfigManager();
+        const config: MenuConfig = {
+            version: '1.0',
+            menu: [],
+            commands: {
+                my_tunnel: {
+                    type: 'openRemoteTunnel',
+                    command: '',
+                    path: '/workspace',
+                    tunnelName: 'tunnel-123',
+                    description: 'My tunnel'
+                }
+            }
+        };
+        (manager as unknown as { config: MenuConfig }).config = config;
+
+        const item: MenuItem = {
+            label: 'Open Tunnel',
+            actions: [
+                { ref: 'my_tunnel' }
+            ]
+        };
+
+        const actions = manager.resolveActions(item);
+        assert.ok(actions !== null, 'Actions should not be null');
+        assert.strictEqual(actions!.length, 1);
+        assert.strictEqual(actions![0].type, 'openRemoteTunnel');
+        assert.strictEqual(actions![0].tunnelName, 'tunnel-123', 'tunnelName should be preserved via ref in actions');
+    });
+
+    test('should resolve openRemoteTunnel via ref in parallel array', () => {
+        const manager = new ConfigManager();
+        const config: MenuConfig = {
+            version: '1.0',
+            menu: [],
+            commands: {
+                tunnel_a: {
+                    type: 'openRemoteTunnel',
+                    command: '',
+                    path: '/workspace/a',
+                    tunnelName: 'tunnel-a'
+                },
+                tunnel_b: {
+                    type: 'openRemoteTunnel',
+                    command: '',
+                    path: '/workspace/b',
+                    tunnelName: 'tunnel-b'
+                }
+            }
+        };
+        (manager as unknown as { config: MenuConfig }).config = config;
+
+        const item: MenuItem = {
+            label: 'Open Tunnels',
+            parallel: [
+                { ref: 'tunnel_a' },
+                { ref: 'tunnel_b' }
+            ]
+        };
+
+        const actions = manager.resolveParallelActions(item);
+        assert.ok(actions !== null, 'Actions should not be null');
+        assert.strictEqual(actions!.length, 2);
+        assert.strictEqual(actions![0].tunnelName, 'tunnel-a', 'tunnelName should be preserved via ref in parallel');
+        assert.strictEqual(actions![1].tunnelName, 'tunnel-b', 'tunnelName should be preserved via ref in parallel');
+    });
+});
+
+suite('hasMultipleActions', () => {
 
         test('should return true for item with multiple actions', () => {
             const manager = new ConfigManager();
