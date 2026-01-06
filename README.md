@@ -212,6 +212,17 @@ Open a folder via SSH (requires Remote - SSH extension):
   host: my-server  # Host from ~/.ssh/config
 ```
 
+### Remote Tunnel
+
+Open a folder via Remote Tunnel (requires Remote - Tunnels extension):
+
+```yaml
+- label: Connect to Win11
+  type: openRemoteTunnel
+  path: /home/user/project  # フルパス推奨（~は非推奨）
+  tunnelName: my-tunnel  # GitHub認証済みのトンネル名
+```
+
 ## Requirements
 
 - VS Code 1.85.0 or higher
