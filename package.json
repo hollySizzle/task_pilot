@@ -2,7 +2,7 @@
   "name": "taskpilot",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "publisher": "hollySizzle",
   "license": "MIT",
   "icon": "resources/icon.png",
@@ -73,7 +73,8 @@
       },
       {
         "command": "taskPilot.generateSample",
-        "title": "%commands.generateSample.title%"
+        "title": "%commands.generateSample.title%",
+        "icon": "$(file-add)"
       },
       {
         "command": "taskPilot.openGlobalSettings",
@@ -160,6 +161,30 @@
           }
         }
       }
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "taskPilot.generateSample",
+          "when": "view == taskPilot.sidebarView",
+          "group": "navigation"
+        },
+        {
+          "command": "taskPilot.refreshSidebar",
+          "when": "view == taskPilot.sidebarView",
+          "group": "navigation"
+        },
+        {
+          "command": "taskPilot.openEditor",
+          "when": "view == taskPilot.sidebarView",
+          "group": "navigation"
+        },
+        {
+          "command": "taskPilot.openGlobalSettings",
+          "when": "view == taskPilot.sidebarView",
+          "group": "navigation"
+        }
+      ]
     },
     "yamlValidation": [
       {
