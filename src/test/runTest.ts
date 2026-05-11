@@ -1,5 +1,9 @@
 import * as path from 'path';
-import { runTests } from '@vscode/test-electron';
+import {
+    downloadAndUnzipVSCode,
+    resolveCliPathFromVSCodeExecutablePath,
+    runTests
+} from '@vscode/test-electron';
 
 async function main() {
     try {
@@ -10,8 +14,12 @@ async function main() {
         // テストランナースクリプトへのパス
         const extensionTestsPath = path.resolve(__dirname, './suite/index');
 
+        const vscodeExecutablePath = await downloadAndUnzipVSCode();
+        const vscodeCliPath = resolveCliPathFromVSCodeExecutablePath(vscodeExecutablePath);
+
         // VS Codeをダウンロードし、テストを実行
         await runTests({
+            vscodeExecutablePath: vscodeCliPath,
             extensionDevelopmentPath,
             extensionTestsPath,
             launchArgs: [

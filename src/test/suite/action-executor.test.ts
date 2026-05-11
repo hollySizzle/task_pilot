@@ -82,6 +82,32 @@ suite('ActionExecutor Test Suite', () => {
         });
     });
 
+    suite('Shell Command Actions', () => {
+        test('should execute shell command and wait for completion', async () => {
+            const action: ResolvedAction = {
+                type: 'shellCommand',
+                command: 'node -e "process.stdout.write(\\"shell-ok\\")"'
+            };
+
+            await executor.execute(action);
+        });
+
+        test('should reject when shell command exits with error', async () => {
+            const action: ResolvedAction = {
+                type: 'shellCommand',
+                command: 'node -e "process.exit(3)"'
+            };
+
+            try {
+                await executor.execute(action);
+                assert.fail('Should throw error for failing shell command');
+            } catch (error) {
+                assert.ok(error instanceof Error);
+                assert.ok((error as Error).message.includes('Shell command failed'));
+            }
+        });
+    });
+
     suite('VS Code Command Actions', () => {
         test('should execute vscode command', async () => {
             const action: ResolvedAction = {

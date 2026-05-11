@@ -2,7 +2,7 @@
   "name": "taskpilot",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "publisher": "hollySizzle",
   "license": "MIT",
   "icon": "resources/icon.png",
@@ -122,7 +122,15 @@
               },
               "type": {
                 "type": "string",
-                "enum": ["terminal", "vscodeCommand", "task", "openInDevContainer", "openRemoteSSH", "openRemoteTunnel"],
+                "enum": [
+                  "terminal",
+                  "shellCommand",
+                  "vscodeCommand",
+                  "task",
+                  "openInDevContainer",
+                  "openRemoteSSH",
+                  "openRemoteTunnel"
+                ],
                 "description": "Action type"
               },
               "command": {
@@ -157,7 +165,9 @@
                 }
               }
             },
-            "required": ["label"]
+            "required": [
+              "label"
+            ]
           }
         }
       }

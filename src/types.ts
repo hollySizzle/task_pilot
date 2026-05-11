@@ -14,6 +14,7 @@
  * TaskPilotがサポートするアクションの種類を定義します。
  *
  * - `terminal`: ターミナルでシェルコマンドを実行
+ * - `shellCommand`: VS Codeのターミナルを使わず、拡張ホスト側でシェルコマンドを実行して完了を待機
  * - `vscodeCommand`: VS Codeの内蔵コマンドを実行
  * - `task`: VS Codeのタスクを実行
  * - `openInDevContainer`: DevContainerでフォルダを開く
@@ -46,7 +47,7 @@
  * tunnelName: my-tunnel
  * ```
  */
-export type ActionType = 'terminal' | 'vscodeCommand' | 'task' | 'openInDevContainer' | 'openRemoteSSH' | 'openRemoteTunnel';
+export type ActionType = 'terminal' | 'shellCommand' | 'vscodeCommand' | 'task' | 'openInDevContainer' | 'openRemoteSSH' | 'openRemoteTunnel';
 
 /**
  * コマンド定義
@@ -77,6 +78,7 @@ export interface CommandDefinition {
      * 実行するコマンド
      *
      * - `terminal`: シェルコマンド（例: `npm run build`）
+     * - `shellCommand`: 拡張ホスト側で実行するシェルコマンド（例: `npm run build`）
      * - `vscodeCommand`: VS CodeコマンドID（例: `workbench.action.openSettings`）
      * - `task`: タスク名（例: `build`）
      *
@@ -104,7 +106,7 @@ export interface CommandDefinition {
     args?: unknown[];
 
     /**
-     * 作業ディレクトリ（type: terminal の場合）
+     * 作業ディレクトリ（type: terminal または shellCommand の場合）
      *
      * コマンドを実行するディレクトリ。相対パスはワークスペースルートからの相対パス。
      *
@@ -199,7 +201,7 @@ export interface ActionDefinition {
     args?: unknown[];
 
     /**
-     * 作業ディレクトリ（type: terminal、ref未使用時）
+     * 作業ディレクトリ（type: terminal または shellCommand、ref未使用時）
      * @example "./packages/app"
      */
     cwd?: string;
@@ -347,7 +349,7 @@ export interface MenuItem {
     args?: unknown[];
 
     /**
-     * 作業ディレクトリ（type: terminal、ref未使用時）
+     * 作業ディレクトリ（type: terminal または shellCommand、ref未使用時）
      * @example "./packages/app"
      */
     cwd?: string;
@@ -457,7 +459,7 @@ export interface MenuConfig {
 export interface ResolvedAction {
     /** アクションタイプ */
     type: ActionType;
-    /** 実行コマンド（terminal, vscodeCommand, task で使用） */
+    /** 実行コマンド（terminal, shellCommand, vscodeCommand, task で使用） */
     command?: string;
     /** ターミナル名 */
     terminal?: string;

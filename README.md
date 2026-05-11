@@ -78,7 +78,7 @@ version: "1.0"
 # Reusable command definitions
 commands:
   command_id:
-    type: terminal | vscodeCommand | task
+    type: terminal | shellCommand | vscodeCommand | task
     command: string          # Command to execute
     terminal: string         # Terminal name (for type: terminal)
     args: array              # Command arguments
@@ -94,7 +94,7 @@ menu:
 
     # Action (one of the following)
     ref: string              # Reference to commands section
-    type: terminal | vscodeCommand | task
+    type: terminal | shellCommand | vscodeCommand | task
     command: string
 ```
 
@@ -162,6 +162,17 @@ Execute commands in VS Code's integrated terminal:
   type: terminal
   command: npm run build
   terminal: Build      # Optional: named terminal
+  cwd: ./packages/app  # Optional: working directory
+```
+
+### Shell Command
+
+Execute shell commands inside TaskPilot and wait for completion before the next action:
+
+```yaml
+- label: Prepare
+  type: shellCommand
+  command: ./scripts/prepare.sh
   cwd: ./packages/app  # Optional: working directory
 ```
 

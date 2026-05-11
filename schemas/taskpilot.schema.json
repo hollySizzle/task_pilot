@@ -45,7 +45,7 @@
         },
         "command": {
           "type": "string",
-          "description": "実行するコマンド\n\n- `terminal`: シェルコマンド（例: `npm run build`）\n- `vscodeCommand`: VS CodeコマンドID（例: `workbench.action.openSettings`）\n- `task`: タスク名（例: `build`）",
+          "description": "実行するコマンド\n\n- `terminal`: シェルコマンド（例: `npm run build`）\n- `shellCommand`: 拡張ホスト側で実行するシェルコマンド（例: `npm run build`）\n- `vscodeCommand`: VS CodeコマンドID（例: `workbench.action.openSettings`）\n- `task`: タスク名（例: `build`）",
           "examples": [
             "npm run build"
           ]
@@ -69,7 +69,7 @@
         },
         "cwd": {
           "type": "string",
-          "description": "作業ディレクトリ（type: terminal の場合）\n\nコマンドを実行するディレクトリ。相対パスはワークスペースルートからの相対パス。",
+          "description": "作業ディレクトリ（type: terminal または shellCommand の場合）\n\nコマンドを実行するディレクトリ。相対パスはワークスペースルートからの相対パス。",
           "examples": [
             "./packages/app"
           ]
@@ -114,13 +114,14 @@
       "type": "string",
       "enum": [
         "terminal",
+        "shellCommand",
         "vscodeCommand",
         "task",
         "openInDevContainer",
         "openRemoteSSH",
         "openRemoteTunnel"
       ],
-      "description": "アクションタイプ\n\nTaskPilotがサポートするアクションの種類を定義します。\n\n- `terminal`: ターミナルでシェルコマンドを実行\n- `vscodeCommand`: VS Codeの内蔵コマンドを実行\n- `task`: VS Codeのタスクを実行\n- `openInDevContainer`: DevContainerでフォルダを開く\n- `openRemoteSSH`: Remote-SSHでフォルダを開く\n- `openRemoteTunnel`: Remote Tunnelでフォルダを開く"
+      "description": "アクションタイプ\n\nTaskPilotがサポートするアクションの種類を定義します。\n\n- `terminal`: ターミナルでシェルコマンドを実行\n- `shellCommand`: VS Codeのターミナルを使わず、拡張ホスト側でシェルコマンドを実行して完了を待機\n- `vscodeCommand`: VS Codeの内蔵コマンドを実行\n- `task`: VS Codeのタスクを実行\n- `openInDevContainer`: DevContainerでフォルダを開く\n- `openRemoteSSH`: Remote-SSHでフォルダを開く\n- `openRemoteTunnel`: Remote Tunnelでフォルダを開く"
     },
     "MenuItem": {
       "type": "object",
@@ -189,7 +190,7 @@
         },
         "cwd": {
           "type": "string",
-          "description": "作業ディレクトリ（type: terminal、ref未使用時）",
+          "description": "作業ディレクトリ（type: terminal または shellCommand、ref未使用時）",
           "examples": [
             "./packages/app"
           ]
@@ -284,7 +285,7 @@
         },
         "cwd": {
           "type": "string",
-          "description": "作業ディレクトリ（type: terminal、ref未使用時）",
+          "description": "作業ディレクトリ（type: terminal または shellCommand、ref未使用時）",
           "examples": [
             "./packages/app"
           ]

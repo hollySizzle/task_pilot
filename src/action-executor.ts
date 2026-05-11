@@ -1,9 +1,11 @@
 /**
  * TaskPilot Action Executor
- * terminal, vscodeCommand, task の3種類のアクションを実行
+ * terminal, shellCommand, vscodeCommand, task などのアクションを実行
  */
 
 import * as vscode from 'vscode';
+import * as path from 'path';
+import { exec } from 'child_process';
 import { ResolvedAction, MultipleActionOptions, MultipleActionResult, ActionError, ActionGroup } from './types';
 
 /**
@@ -16,7 +18,12 @@ export class ActionExecutor implements vscode.Disposable {
     /** ターミナル終了監視用Disposable */
     private terminalCloseListener: vscode.Disposable;
 
+    /** shellCommand の stdout/stderr 出力先 */
+    private outputChannel: vscode.OutputChannel;
+
     constructor() {
+        this.outputChannel = vscode.window.createOutputChannel('TaskPilot');
+
         // ターミナルが閉じられたらマップから削除
         this.terminalCloseListener = vscode.window.onDidCloseTerminal(terminal => {
             for (const [name, t] of this.terminals) {
@@ -34,6 +41,7 @@ export class ActionExecutor implements vscode.Disposable {
     async execute(action: ResolvedAction): Promise<void> {
         switch (action.type) {
             case 'terminal':
+            case 'shellCommand':
             case 'vscodeCommand':
             case 'task':
                 if (!action.command) {
@@ -52,6 +60,9 @@ export class ActionExecutor implements vscode.Disposable {
         switch (action.type) {
             case 'terminal':
                 await this.executeTerminal(action);
+                break;
+            case 'shellCommand':
+                await this.executeShellCommand(action);
                 break;
             case 'vscodeCommand':
                 await this.executeVscodeCommand(action);
@@ -111,6 +122,46 @@ export class ActionExecutor implements vscode.Disposable {
     }
 
     /**
+     * 拡張ホスト側でシェルコマンドを実行し、完了まで待機
+     */
+    private async executeShellCommand(action: ResolvedAction): Promise<void> {
+        const command = action.command!;
+        const cwd = this.resolveCwd(action.cwd);
+
+        this.outputChannel.appendLine(`$ ${command}`);
+        this.outputChannel.appendLine(`cwd: ${cwd}`);
+
+        await new Promise<void>((resolve, reject) => {
+            exec(command, {
+                cwd,
+                env: process.env,
+                maxBuffer: 10 * 1024 * 1024
+            }, (error, stdout, stderr) => {
+                if (stdout) {
+                    this.outputChannel.append(stdout);
+                    if (!stdout.endsWith('\n')) {
+                        this.outputChannel.appendLine('');
+                    }
+                }
+
+                if (stderr) {
+                    this.outputChannel.append(stderr);
+                    if (!stderr.endsWith('\n')) {
+                        this.outputChannel.appendLine('');
+                    }
+                }
+
+                if (error) {
+                    reject(new Error(`Shell command failed "${command}": ${error.message}`));
+                    return;
+                }
+
+                resolve();
+            });
+        });
+    }
+
+    /**
      * VS Codeコマンドを実行
      */
     private async executeVscodeCommand(action: ResolvedAction): Promise<void> {
@@ -122,6 +173,22 @@ export class ActionExecutor implements vscode.Disposable {
             const message = error instanceof Error ? error.message : String(error);
             throw new Error(`Failed to execute command "${action.command}": ${message}`);
         }
+    }
+
+    /**
+     * cwd を workspace ルート基準で解決する
+     */
+    private resolveCwd(cwd?: string): string {
+        if (!cwd) {
+            return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
+        }
+
+        if (path.isAbsolute(cwd)) {
+            return cwd;
+        }
+
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
+        return path.resolve(workspaceRoot, cwd);
     }
 
     /**
@@ -446,6 +513,7 @@ export class ActionExecutor implements vscode.Disposable {
      */
     dispose(): void {
         this.terminalCloseListener.dispose();
+        this.outputChannel.dispose();
         // ターミナルは明示的に閉じない（ユーザーが作業中かもしれない）
         this.terminals.clear();
     }

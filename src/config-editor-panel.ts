@@ -355,6 +355,7 @@ export class ConfigEditorPanel {
                     <select id="itemType">
                         <option value="">Category (has children)</option>
                         <option value="terminal">Terminal</option>
+                        <option value="shellCommand">Shell Command</option>
                         <option value="vscodeCommand">VS Code Command</option>
                         <option value="task">Task</option>
                         <option value="ref">Reference (ref)</option>
@@ -641,7 +642,7 @@ export class ConfigEditorPanel {
             const name = prompt('Command name:');
             if (!name) return;
 
-            const type = prompt('Type (terminal, vscodeCommand, task):', 'terminal');
+            const type = prompt('Type (terminal, shellCommand, vscodeCommand, task):', 'terminal');
             if (!type) return;
 
             const command = prompt('Command:');

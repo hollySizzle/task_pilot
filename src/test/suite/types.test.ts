@@ -272,6 +272,18 @@ suite('Type Definition Test Suite', () => {
             assert.strictEqual(result.valid, true);
         });
 
+        test('should accept "shellCommand" action type', () => {
+            const config = {
+                version: '1.0',
+                menu: [
+                    { label: 'Script', type: 'shellCommand', command: 'npm test' }
+                ]
+            };
+
+            const { result } = validateConfig(config);
+            assert.strictEqual(result.valid, true);
+        });
+
         test('should accept "vscodeCommand" action type', () => {
             const config = {
                 version: '1.0',
@@ -392,6 +404,44 @@ suite('Type Definition Test Suite', () => {
                     {
                         label: 'Build',
                         type: 'terminal',
+                        command: 'npm run build',
+                        cwd: 123
+                    }
+                ]
+            };
+
+            const { result } = validateConfig(config);
+            assert.strictEqual(result.valid, false);
+            assert.ok(result.errors.some(e => e.message.includes('"cwd" must be a string')));
+        });
+    });
+
+    suite('Shell Command Action Validation', () => {
+
+        test('should accept shellCommand action with cwd', () => {
+            const config = {
+                version: '1.0',
+                menu: [
+                    {
+                        label: 'Run Script',
+                        type: 'shellCommand',
+                        command: 'npm run build',
+                        cwd: './packages/core'
+                    }
+                ]
+            };
+
+            const { result } = validateConfig(config);
+            assert.strictEqual(result.valid, true);
+        });
+
+        test('should reject shellCommand action with invalid cwd type', () => {
+            const config = {
+                version: '1.0',
+                menu: [
+                    {
+                        label: 'Run Script',
+                        type: 'shellCommand',
                         command: 'npm run build',
                         cwd: 123
                     }

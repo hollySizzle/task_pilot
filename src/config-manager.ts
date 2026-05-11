@@ -255,7 +255,7 @@ export class ConfigManager implements vscode.Disposable {
         }
 
         if (item.type && item.command) {
-            // インラインアクション（terminal, vscodeCommand, task）
+            // インラインアクション（terminal, shellCommand, vscodeCommand, task）
             return {
                 type: item.type,
                 command: item.command,
@@ -351,7 +351,7 @@ export class ConfigManager implements vscode.Disposable {
         }
 
         if (actionDef.type && actionDef.command) {
-            // インラインアクション（terminal, vscodeCommand, task）
+            // インラインアクション（terminal, shellCommand, vscodeCommand, task）
             return {
                 type: actionDef.type,
                 command: actionDef.command,

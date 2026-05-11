@@ -157,6 +157,28 @@ suite('ConfigManager Test Suite', () => {
             assert.strictEqual(action!.command, 'editor.action.formatDocument');
         });
 
+        test('should resolve inline shellCommand action', () => {
+            const manager = new ConfigManager();
+            const config: MenuConfig = {
+                version: '1.0',
+                menu: []
+            };
+            (manager as unknown as { config: MenuConfig }).config = config;
+
+            const item: MenuItem = {
+                label: 'Script',
+                type: 'shellCommand',
+                command: 'npm run build',
+                cwd: './packages/core'
+            };
+
+            const action = manager.resolveAction(item);
+            assert.ok(action !== null);
+            assert.strictEqual(action!.type, 'shellCommand');
+            assert.strictEqual(action!.command, 'npm run build');
+            assert.strictEqual(action!.cwd, './packages/core');
+        });
+
         test('should resolve inline action with all properties', () => {
             const manager = new ConfigManager();
             const config: MenuConfig = {
