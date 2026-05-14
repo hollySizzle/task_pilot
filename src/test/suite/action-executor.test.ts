@@ -106,6 +106,42 @@ suite('ActionExecutor Test Suite', () => {
                 assert.ok((error as Error).message.includes('Shell command failed'));
             }
         });
+
+        test('should prefer stderr output in shell command failure message', async () => {
+            const action: ResolvedAction = {
+                type: 'shellCommand',
+                command: 'node -e "console.error(\\"Need at least 2 existing tmux windows in session: task_pilot\\"); process.exit(1)"'
+            };
+
+            try {
+                await executor.execute(action);
+                assert.fail('Should throw error for failing shell command');
+            } catch (error) {
+                assert.ok(error instanceof Error);
+                assert.strictEqual(
+                    (error as Error).message,
+                    'Shell command failed: Need at least 2 existing tmux windows in session: task_pilot'
+                );
+            }
+        });
+
+        test('should fall back to stdout output in shell command failure message', async () => {
+            const action: ResolvedAction = {
+                type: 'shellCommand',
+                command: 'node -e "console.log(\\"No tmux session found: task_pilot\\"); process.exit(1)"'
+            };
+
+            try {
+                await executor.execute(action);
+                assert.fail('Should throw error for failing shell command');
+            } catch (error) {
+                assert.ok(error instanceof Error);
+                assert.strictEqual(
+                    (error as Error).message,
+                    'Shell command failed: No tmux session found: task_pilot'
+                );
+            }
+        });
     });
 
     suite('VS Code Command Actions', () => {

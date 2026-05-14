@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.6] - 2026-05-14
+
+### Changed
+- Changed `shellCommand` failure notifications to prefer concise stderr/stdout output instead of dumping the full raw command string
+
+### Fixed
+- Fixed shell-command failure messaging so validation-style checks can report actionable reasons such as missing tmux sessions or insufficient existing windows
+
 ## [0.6.5] - 2026-05-14
 
 ### Added

@@ -152,13 +152,42 @@ export class ActionExecutor implements vscode.Disposable {
                 }
 
                 if (error) {
-                    reject(new Error(`Shell command failed "${command}": ${error.message}`));
+                    const detail = this.getShellCommandFailureDetail(stdout, stderr, error.message);
+                    reject(new Error(`Shell command failed: ${detail}`));
                     return;
                 }
 
                 resolve();
             });
         });
+    }
+
+    /**
+     * shellCommand 失敗時の表示メッセージを整形
+     * stderr / stdout の最後の非空行を優先し、汎用的な exec エラー文字列より
+     * 具体的な失敗理由をユーザーへ返す
+     */
+    private getShellCommandFailureDetail(stdout: string, stderr: string, fallback: string): string {
+        const stderrLine = this.getLastNonEmptyLine(stderr);
+        if (stderrLine) {
+            return stderrLine;
+        }
+
+        const stdoutLine = this.getLastNonEmptyLine(stdout);
+        if (stdoutLine) {
+            return stdoutLine;
+        }
+
+        return fallback;
+    }
+
+    private getLastNonEmptyLine(output: string): string | null {
+        const lines = output
+            .split(/\r?\n/)
+            .map(line => line.trim())
+            .filter(Boolean);
+
+        return lines.length > 0 ? lines[lines.length - 1] : null;
     }
 
     /**
