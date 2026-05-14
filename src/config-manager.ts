@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { parseMenuConfig, YamlParseError } from './yaml-parser';
+import { parseMenuConfig, validateGlobalMenu, YamlParseError } from './yaml-parser';
 import { MenuConfig, MenuItem, ResolvedAction, CommandDefinition, ActionDefinition } from './types';
 
 /**
@@ -16,11 +16,22 @@ export interface ConfigChangeEvent {
     error?: Error;
 }
 
+export interface GlobalMenuExportSkip {
+    label: string;
+    reason: string;
+}
+
+export interface GlobalMenuExportResult {
+    menu: MenuItem[];
+    skipped: GlobalMenuExportSkip[];
+}
+
 /**
  * ConfigManager - 設定ファイルの管理クラス
  */
 export class ConfigManager implements vscode.Disposable {
     private config: MenuConfig | null = null;
+    private globalMenu: MenuItem[] = [];
     private fileWatcher: vscode.FileSystemWatcher | null = null;
     private configWatcher: vscode.Disposable | null = null;
     private currentConfigPath: string | null = null;
@@ -38,10 +49,7 @@ export class ConfigManager implements vscode.Disposable {
      * グローバルメニュー（ユーザー設定）を取得
      */
     getGlobalMenu(): MenuItem[] {
-        const globalMenu = vscode.workspace
-            .getConfiguration('taskPilot')
-            .get<MenuItem[]>('globalMenu', []);
-        return globalMenu;
+        return this.globalMenu;
     }
 
     /**
@@ -53,14 +61,31 @@ export class ConfigManager implements vscode.Disposable {
             return workspaceMenu;
         }
 
-        // ワークスペースメニューのトップレベルラベルを収集
-        const workspaceLabels = new Set(workspaceMenu.map(item => item.label));
+        const mergedMenu = workspaceMenu.map(item => ({ ...item }));
 
-        // グローバルメニューから重複を除外してマージ
-        const uniqueGlobalItems = globalMenu.filter(item => !workspaceLabels.has(item.label));
+        for (const globalItem of globalMenu) {
+            const workspaceIndex = mergedMenu.findIndex(item => item.label === globalItem.label);
 
-        // グローバルメニューをワークスペースメニューの後に追加
-        return [...workspaceMenu, ...uniqueGlobalItems];
+            if (workspaceIndex === -1) {
+                mergedMenu.push(globalItem);
+                continue;
+            }
+
+            const workspaceItem = mergedMenu[workspaceIndex];
+            if (this.canMergeCategories(workspaceItem, globalItem)) {
+                mergedMenu[workspaceIndex] = {
+                    ...workspaceItem,
+                    children: this.mergeMenus(workspaceItem.children || [], globalItem.children || [])
+                };
+            }
+        }
+
+        return mergedMenu;
+    }
+
+    private canMergeCategories(workspaceItem: MenuItem, globalItem: MenuItem): boolean {
+        return !!workspaceItem.children && workspaceItem.children.length > 0 &&
+            !!globalItem.children && globalItem.children.length > 0;
     }
 
     /**
@@ -105,6 +130,14 @@ export class ConfigManager implements vscode.Disposable {
      */
     async reloadConfig(): Promise<void> {
         const configPath = this.getConfigPath();
+        let globalMenuError: Error | undefined;
+
+        try {
+            this.globalMenu = this.loadGlobalMenu();
+        } catch (error) {
+            this.globalMenu = [];
+            globalMenuError = error instanceof Error ? error : new Error(String(error));
+        }
 
         // パスが変更された場合、ファイルウォッチャーを更新
         if (configPath !== this.currentConfigPath) {
@@ -114,7 +147,13 @@ export class ConfigManager implements vscode.Disposable {
 
         if (!configPath) {
             this.config = null;
-            this._onConfigChanged.fire({ config: null, error: new Error('No workspace folder open') });
+            this._onConfigChanged.fire({
+                config: null,
+                error: globalMenuError || new Error('No workspace folder open')
+            });
+            if (globalMenuError) {
+                this.showGlobalMenuErrorNotification(globalMenuError);
+            }
             return;
         }
 
@@ -124,7 +163,13 @@ export class ConfigManager implements vscode.Disposable {
             const text = new TextDecoder().decode(content);
 
             this.config = parseMenuConfig(text);
-            this._onConfigChanged.fire({ config: this.config });
+            this._onConfigChanged.fire({
+                config: this.config,
+                error: globalMenuError
+            });
+            if (globalMenuError) {
+                this.showGlobalMenuErrorNotification(globalMenuError);
+            }
         } catch (error) {
             this.config = null;
             const err = error instanceof Error ? error : new Error(String(error));
@@ -133,14 +178,39 @@ export class ConfigManager implements vscode.Disposable {
             if (err.message.includes('ENOENT') || err.message.includes('FileNotFound')) {
                 this._onConfigChanged.fire({
                     config: null,
-                    error: new Error(`Configuration file not found: ${configPath}`)
+                    error: globalMenuError || new Error(`Configuration file not found: ${configPath}`)
                 });
+                if (globalMenuError) {
+                    this.showGlobalMenuErrorNotification(globalMenuError);
+                }
             } else {
                 // パースエラーなどは通知
                 this._onConfigChanged.fire({ config: null, error: err });
                 this.showErrorNotification(err);
+                if (globalMenuError) {
+                    this.showGlobalMenuErrorNotification(globalMenuError);
+                }
             }
         }
+    }
+
+    /**
+     * ユーザー設定の globalMenu を読み込み・検証
+     */
+    private loadGlobalMenu(): MenuItem[] {
+        const rawGlobalMenu = vscode.workspace
+            .getConfiguration('taskPilot')
+            .get<unknown>('globalMenu', []);
+
+        const { result, menu } = validateGlobalMenu(rawGlobalMenu);
+        if (!result.valid || !menu) {
+            const errorMessages = result.errors
+                .map(e => e.path ? `${e.path}: ${e.message}` : e.message)
+                .join('\n');
+            throw new Error(`Global menu validation failed:\n${errorMessages}`);
+        }
+
+        return menu;
     }
 
     /**
@@ -203,6 +273,22 @@ export class ConfigManager implements vscode.Disposable {
     }
 
     /**
+     * globalMenu 設定エラー通知を表示
+     */
+    private showGlobalMenuErrorNotification(error: Error): void {
+        const message = `TaskPilot: ${error.message}`;
+
+        vscode.window.showErrorMessage(message, 'Open Settings').then(selection => {
+            if (selection === 'Open Settings') {
+                void vscode.commands.executeCommand(
+                    'workbench.action.openSettings',
+                    '@ext:hollySizzle.taskpilot taskPilot.globalMenu'
+                );
+            }
+        });
+    }
+
+    /**
      * 現在の設定を取得（グローバルメニューをマージ済み）
      */
     getConfig(): MenuConfig | null {
@@ -232,6 +318,39 @@ export class ConfigManager implements vscode.Disposable {
      */
     getWorkspaceConfig(): MenuConfig | null {
         return this.config;
+    }
+
+    /**
+     * workspace menu から globalMenu 向けの export データを生成
+     * source を省略した場合は保存済み workspace config を使用する。
+     * Config Editor などの「未保存編集を含む config」を export 元にしたい場合は
+     * source に渡す。
+     */
+    buildGlobalMenuExport(source?: MenuConfig | null): GlobalMenuExportResult {
+        const workspaceConfig = source ?? this.getWorkspaceConfig();
+        if (!workspaceConfig) {
+            return { menu: [], skipped: [] };
+        }
+
+        const exported: MenuItem[] = [];
+        const skipped: GlobalMenuExportSkip[] = [];
+
+        for (const item of workspaceConfig.menu) {
+            if (this.containsRef(item)) {
+                skipped.push({
+                    label: item.label,
+                    reason: 'contains ref'
+                });
+                continue;
+            }
+
+            exported.push(item);
+        }
+
+        return {
+            menu: exported,
+            skipped
+        };
     }
 
     /**
@@ -407,6 +526,26 @@ export class ConfigManager implements vscode.Disposable {
         }
 
         return resolved.length > 0 ? resolved : null;
+    }
+
+    private containsRef(item: MenuItem): boolean {
+        if (item.ref) {
+            return true;
+        }
+
+        if (item.actions?.some(action => !!action.ref)) {
+            return true;
+        }
+
+        if (item.parallel?.some(action => !!action.ref)) {
+            return true;
+        }
+
+        if (item.children?.some(child => this.containsRef(child))) {
+            return true;
+        }
+
+        return false;
     }
 
     /**

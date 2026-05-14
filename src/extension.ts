@@ -10,6 +10,7 @@ import { QuickPickMenu } from './quick-pick-menu';
 import { SidebarViewProvider } from './sidebar-view-provider';
 import { ConfigEditorPanel } from './config-editor-panel';
 import { generateSampleConfig, setExtensionPath } from './sample-generator';
+import { MenuConfig } from './types';
 
 /** ConfigManager インスタンス */
 let configManager: ConfigManager | undefined;
@@ -147,6 +148,51 @@ export function activate(context: vscode.ExtensionContext): void {
     });
 
     context.subscriptions.push(openGlobalSettingsCommand);
+
+    // Register exportGlobalMenu command
+    // configOverride を渡すと、保存済み workspace YAML ではなくその config を export 元にする。
+    // Config Editor は未保存編集を含む `_currentConfig` を渡すことで、clipboard に
+    // stale な JSON が出るのを防ぐ。
+    const exportGlobalMenuCommand = vscode.commands.registerCommand('taskPilot.exportGlobalMenu', async (configOverride?: MenuConfig) => {
+        if (!configManager) {
+            vscode.window.showErrorMessage(`TaskPilot: ${vscode.l10n.t('Extension not initialized')}`);
+            return;
+        }
+
+        const sourceConfig = configOverride ?? configManager.getWorkspaceConfig();
+        if (!sourceConfig || sourceConfig.menu.length === 0) {
+            vscode.window.showWarningMessage('TaskPilot: No workspace menu available to export');
+            return;
+        }
+
+        const exportResult = configManager.buildGlobalMenuExport(sourceConfig);
+        if (exportResult.menu.length === 0) {
+            const skippedLabels = exportResult.skipped.map(item => item.label).join(', ');
+            vscode.window.showWarningMessage(
+                skippedLabels
+                    ? `TaskPilot: No exportable menu items. Skipped: ${skippedLabels}`
+                    : 'TaskPilot: No exportable menu items'
+            );
+            return;
+        }
+
+        const json = JSON.stringify(exportResult.menu, null, 2);
+        await vscode.env.clipboard.writeText(json);
+
+        const skippedMessage = exportResult.skipped.length > 0
+            ? ` Skipped ${exportResult.skipped.length} top-level item(s) containing ref.`
+            : '';
+        const action = await vscode.window.showInformationMessage(
+            `TaskPilot: Copied globalMenu export to clipboard.${skippedMessage}`,
+            'Open Settings'
+        );
+
+        if (action === 'Open Settings') {
+            await vscode.commands.executeCommand('taskPilot.openGlobalSettings');
+        }
+    });
+
+    context.subscriptions.push(exportGlobalMenuCommand);
 }
 
 /**

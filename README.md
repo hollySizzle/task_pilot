@@ -69,6 +69,60 @@ menu:
 | Setting | Description | Default |
 |---------|-------------|---------|
 | `taskPilot.configPath` | Path to YAML config file | `.vscode/task-menu.yaml` |
+| `taskPilot.globalMenu` | Global menu items merged after workspace menu | `[]` |
+
+### Global Menu
+
+`taskPilot.globalMenu` lets you define menu items in user settings and merge them into every workspace.
+
+- It supports the same inline action shapes as `MenuItem`, including `children`, `actions`, `parallel`, `args`, and `continueOnError`
+- `ref` is not supported in `taskPilot.globalMenu` because user settings do not have a `commands` section. This is enforced at every level: top-level items, nested children, and entries inside `actions`/`parallel` arrays. The settings schema also rejects `ref` so Settings UI cannot persist invalid objects.
+- When a `label` collides with a workspace menu item, TaskPilot keeps the workspace item
+- If both colliding items are categories with `children`, TaskPilot recursively merges their children with workspace priority
+
+Example:
+
+```json
+"taskPilot.globalMenu": [
+  {
+    "label": "Utilities",
+    "children": [
+      {
+        "label": "Open Extensions",
+        "type": "vscodeCommand",
+        "command": "workbench.view.extensions"
+      },
+      {
+        "label": "Prep + Test",
+        "actions": [
+          {
+            "type": "shellCommand",
+            "command": "./scripts/prepare.sh"
+          },
+          {
+            "type": "terminal",
+            "command": "npm test",
+            "terminal": "TaskPilot Tests"
+          }
+        ]
+      }
+    ]
+  }
+]
+```
+
+### Export Workspace Menu to Global Menu
+
+Use `TaskPilot: Export Workspace Menu to Global Menu JSON` to copy exportable top-level items from `.vscode/task-menu.yaml` to your clipboard as a JSON array.
+
+- The command exports from the saved workspace YAML, not from merged global/workspace state
+- When invoked from the Config Editor's "Export Global Menu" button, the export uses the editor's current (possibly unsaved) state, so the clipboard JSON always matches what you see in the editor
+- The output is designed to be pasted directly into `taskPilot.globalMenu`
+- The command never writes to `settings.json` automatically
+- It is one-way only; there is no reverse sync
+- Top-level items whose subtree contains `ref` are skipped because `taskPilot.globalMenu` does not support `ref`
+
+If any items are skipped, TaskPilot reports the skipped count after copying the exportable JSON.
 
 ### YAML Schema
 

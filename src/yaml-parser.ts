@@ -6,6 +6,11 @@
 import * as yaml from 'js-yaml';
 import { MenuConfig, MenuItem, CommandDefinition, ValidationResult, ValidationError } from './types';
 
+interface ValidationOptions {
+    allowRef: boolean;
+    refErrorMessage?: string;
+}
+
 /**
  * YAMLパースエラー（行番号付き）
  */
@@ -70,7 +75,7 @@ export function validateConfig(data: unknown): { result: ValidationResult; confi
     } else if (!Array.isArray(obj.menu)) {
         errors.push({ message: '"menu" must be an array', path: 'menu' });
     } else {
-        validateMenuItems(obj.menu, 'menu', errors);
+        validateMenuItems(obj.menu, 'menu', errors, { allowRef: true });
     }
 
     // commands check (optional)
@@ -93,9 +98,40 @@ export function validateConfig(data: unknown): { result: ValidationResult; confi
 }
 
 /**
+ * taskPilot.globalMenu の設定値を検証
+ */
+export function validateGlobalMenu(data: unknown): { result: ValidationResult; menu?: MenuItem[] } {
+    const errors: ValidationError[] = [];
+
+    if (!Array.isArray(data)) {
+        errors.push({ message: '"taskPilot.globalMenu" must be an array', path: 'taskPilot.globalMenu' });
+        return { result: { valid: false, errors } };
+    }
+
+    validateMenuItems(data, 'taskPilot.globalMenu', errors, {
+        allowRef: false,
+        refErrorMessage: '"ref" is not supported in taskPilot.globalMenu'
+    });
+
+    if (errors.length > 0) {
+        return { result: { valid: false, errors } };
+    }
+
+    return {
+        result: { valid: true, errors: [] },
+        menu: data as MenuItem[]
+    };
+}
+
+/**
  * メニューアイテム配列を検証
  */
-function validateMenuItems(items: unknown[], path: string, errors: ValidationError[]): void {
+function validateMenuItems(
+    items: unknown[],
+    path: string,
+    errors: ValidationError[],
+    options: ValidationOptions
+): void {
     items.forEach((item, index) => {
         const itemPath = `${path}[${index}]`;
 
@@ -121,34 +157,52 @@ function validateMenuItems(items: unknown[], path: string, errors: ValidationErr
             errors.push({ message: '"description" must be a string', path: `${itemPath}.description` });
         }
 
+        const hasChildren = menuItem.children !== undefined;
+        const hasActions = menuItem.actions !== undefined;
+        const hasParallel = menuItem.parallel !== undefined;
+
+        // category / actions / parallel branch では validateAction() に届かないため、
+        // ここで ref を明示的に reject する。単独 action は validateAction() で評価される
+        // ので二重報告を避けて除外する。
+        if (
+            menuItem.ref !== undefined &&
+            !options.allowRef &&
+            (hasChildren || hasActions || hasParallel)
+        ) {
+            errors.push({
+                message: options.refErrorMessage || '"ref" is not allowed',
+                path: `${itemPath}.ref`
+            });
+        }
+
         // children or action
-        if (menuItem.children !== undefined) {
+        if (hasChildren) {
             if (!Array.isArray(menuItem.children)) {
                 errors.push({ message: '"children" must be an array', path: `${itemPath}.children` });
             } else {
-                validateMenuItems(menuItem.children, `${itemPath}.children`, errors);
+                validateMenuItems(menuItem.children, `${itemPath}.children`, errors, options);
             }
-        } else if (menuItem.actions !== undefined) {
+        } else if (hasActions) {
             // Multiple actions
             if (!Array.isArray(menuItem.actions)) {
                 errors.push({ message: '"actions" must be an array', path: `${itemPath}.actions` });
             } else {
-                validateActionsArray(menuItem.actions, `${itemPath}.actions`, errors);
+                validateActionsArray(menuItem.actions, `${itemPath}.actions`, errors, options);
             }
             // continueOnError validation
             if (menuItem.continueOnError !== undefined && typeof menuItem.continueOnError !== 'boolean') {
                 errors.push({ message: '"continueOnError" must be a boolean', path: `${itemPath}.continueOnError` });
             }
-        } else if (menuItem.parallel !== undefined) {
+        } else if (hasParallel) {
             // Parallel actions (split terminals)
             if (!Array.isArray(menuItem.parallel)) {
                 errors.push({ message: '"parallel" must be an array', path: `${itemPath}.parallel` });
             } else {
-                validateActionsArray(menuItem.parallel, `${itemPath}.parallel`, errors);
+                validateActionsArray(menuItem.parallel, `${itemPath}.parallel`, errors, options);
             }
         } else {
             // Must have ref or (type + command)
-            validateAction(menuItem, itemPath, errors);
+            validateAction(menuItem, itemPath, errors, options);
         }
     });
 }
@@ -156,7 +210,12 @@ function validateMenuItems(items: unknown[], path: string, errors: ValidationErr
 /**
  * actions配列を検証
  */
-function validateActionsArray(actions: unknown[], path: string, errors: ValidationError[]): void {
+function validateActionsArray(
+    actions: unknown[],
+    path: string,
+    errors: ValidationError[],
+    options: ValidationOptions
+): void {
     actions.forEach((action, index) => {
         const actionPath = `${path}[${index}]`;
 
@@ -166,17 +225,24 @@ function validateActionsArray(actions: unknown[], path: string, errors: Validati
         }
 
         const actionDef = action as Record<string, unknown>;
-        validateActionDefinition(actionDef, actionPath, errors);
+        validateActionDefinition(actionDef, actionPath, errors, options);
     });
 }
 
 /**
  * 個別のアクション定義を検証（actions配列内の要素用）
  */
-function validateActionDefinition(item: Record<string, unknown>, path: string, errors: ValidationError[]): void {
+function validateActionDefinition(
+    item: Record<string, unknown>,
+    path: string,
+    errors: ValidationError[],
+    options: ValidationOptions
+): void {
     if (item.ref !== undefined) {
         if (typeof item.ref !== 'string') {
             errors.push({ message: '"ref" must be a string', path: `${path}.ref` });
+        } else if (!options.allowRef) {
+            errors.push({ message: options.refErrorMessage || '"ref" is not allowed', path: `${path}.ref` });
         }
         return;
     }
@@ -231,10 +297,17 @@ function validateActionDefinition(item: Record<string, unknown>, path: string, e
 /**
  * アクション定義を検証
  */
-function validateAction(item: Record<string, unknown>, path: string, errors: ValidationError[]): void {
+function validateAction(
+    item: Record<string, unknown>,
+    path: string,
+    errors: ValidationError[],
+    options: ValidationOptions
+): void {
     if (item.ref !== undefined) {
         if (typeof item.ref !== 'string') {
             errors.push({ message: '"ref" must be a string', path: `${path}.ref` });
+        } else if (!options.allowRef) {
+            errors.push({ message: options.refErrorMessage || '"ref" is not allowed', path: `${path}.ref` });
         }
         // ref がある場合は type/command は不要
         return;

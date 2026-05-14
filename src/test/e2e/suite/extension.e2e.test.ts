@@ -63,6 +63,14 @@ suite('Extension E2E Test Suite', () => {
         );
     });
 
+    test('taskPilot.exportGlobalMenu command should be registered', async () => {
+        const commands = await vscode.commands.getCommands(true);
+        assert.ok(
+            commands.includes('taskPilot.exportGlobalMenu'),
+            'taskPilot.exportGlobalMenu command should be registered'
+        );
+    });
+
     test('reloadConfig command should execute without error', async () => {
         // reloadConfigコマンドを実行（設定ファイルがなくてもエラーにならない）
         await assert.doesNotReject(async () => {

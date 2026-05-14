@@ -102,33 +102,10 @@ menu:
         type: vscodeCommand
         command: workbench.extensions.action.showInstalledExtensions
 
-  # cwd: 作業ディレクトリ（type: terminal の場合）
+  # cwd: 作業ディレクトリ（type: terminal または shellCommand の場合）
   - label: Subproject
     icon: "$(folder)"
     description: サブディレクトリで実行
     type: terminal
     command: npm install
     cwd: ./packages/subproject
-
-  # Remote系アクション（上級者向け）
-  - label: Remote
-    icon: "$(remote)"
-    description: リモート環境を開く
-    children:
-      - label: Dev Container
-        icon: "$(vm)"
-        description: DevContainerでプロジェクトを開く
-        type: openInDevContainer
-        path: /home/user/my-project
-      - label: SSH Server
-        icon: "$(remote-explorer)"
-        description: SSH経由でリモートサーバーを開く
-        type: openRemoteSSH
-        path: /home/user/project
-        host: my-server  # ~/.ssh/config で定義したHost名
-      - label: Remote Tunnel
-        icon: "$(radio-tower)"
-        description: Remote Tunnel経由でリモートマシンを開く
-        type: openRemoteTunnel
-        path: /home/user/project
-        tunnelName: my-tunnel  # VS Code CLI で登録したトンネル名

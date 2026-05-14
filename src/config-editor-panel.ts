@@ -16,7 +16,7 @@ import { getStyles } from './webview/styles';
 interface WebviewMessage {
     type: 'addItem' | 'updateItem' | 'deleteItem' | 'moveItem' |
           'addCommand' | 'updateCommand' | 'deleteCommand' |
-          'save' | 'undo' | 'redo' | 'refresh' | 'ready';
+          'save' | 'undo' | 'redo' | 'refresh' | 'exportGlobalMenu' | 'ready';
     path?: number[];
     targetPath?: number[];
     item?: MenuItem;
@@ -235,6 +235,16 @@ export class ConfigEditorPanel {
                 this._currentConfig = this._configManager.getConfig();
                 this._sendConfigToWebview();
                 break;
+
+            case 'exportGlobalMenu':
+                // editor 上の未保存編集を export 元に使う。
+                // command 引数を省略すると保存済み YAML が読まれて stale な JSON
+                // が clipboard に流れるため、必ず `_currentConfig` を渡す。
+                await vscode.commands.executeCommand(
+                    'taskPilot.exportGlobalMenu',
+                    this._currentConfig
+                );
+                break;
         }
     }
 
@@ -313,6 +323,7 @@ export class ConfigEditorPanel {
         <button id="btnUndo" class="secondary" disabled>Undo</button>
         <button id="btnRedo" class="secondary" disabled>Redo</button>
         <button id="btnRefresh" class="secondary">Refresh</button>
+        <button id="btnExportGlobalMenu" class="secondary">Export Global Menu</button>
         <button id="btnSave" class="primary">Save</button>
     </div>
 
@@ -425,6 +436,7 @@ export class ConfigEditorPanel {
         document.getElementById('btnUndo').addEventListener('click', () => vscode.postMessage({ type: 'undo' }));
         document.getElementById('btnRedo').addEventListener('click', () => vscode.postMessage({ type: 'redo' }));
         document.getElementById('btnRefresh').addEventListener('click', () => vscode.postMessage({ type: 'refresh' }));
+        document.getElementById('btnExportGlobalMenu').addEventListener('click', () => vscode.postMessage({ type: 'exportGlobalMenu' }));
         document.getElementById('btnSave').addEventListener('click', () => vscode.postMessage({ type: 'save' }));
         document.getElementById('modalClose').addEventListener('click', closeModal);
         document.getElementById('cancelEdit').addEventListener('click', closeModal);

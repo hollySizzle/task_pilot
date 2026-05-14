@@ -2,7 +2,7 @@
   "name": "taskpilot",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.6.4",
+  "version": "0.6.5",
   "publisher": "hollySizzle",
   "license": "MIT",
   "icon": "resources/icon.png",
@@ -82,6 +82,11 @@
         "icon": "$(gear)"
       },
       {
+        "command": "taskPilot.exportGlobalMenu",
+        "title": "%commands.exportGlobalMenu.title%",
+        "icon": "$(export)"
+      },
+      {
         "command": "taskPilot.testDevContainer",
         "title": "TaskPilot: Test DevContainer (Debug)"
       }
@@ -137,6 +142,10 @@
                 "type": "string",
                 "description": "Command to execute"
               },
+              "args": {
+                "type": "array",
+                "description": "Command arguments (for vscodeCommand type)"
+              },
               "terminal": {
                 "type": "string",
                 "description": "Terminal name (for terminal type)"
@@ -157,6 +166,134 @@
                 "type": "string",
                 "description": "Tunnel name (for openRemoteTunnel)"
               },
+              "actions": {
+                "type": "array",
+                "description": "Sequential actions",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "description": {
+                      "type": "string",
+                      "description": "Description shown on hover"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "terminal",
+                        "shellCommand",
+                        "vscodeCommand",
+                        "task",
+                        "openInDevContainer",
+                        "openRemoteSSH",
+                        "openRemoteTunnel"
+                      ],
+                      "description": "Action type"
+                    },
+                    "command": {
+                      "type": "string",
+                      "description": "Command to execute"
+                    },
+                    "args": {
+                      "type": "array",
+                      "description": "Command arguments (for vscodeCommand type)"
+                    },
+                    "terminal": {
+                      "type": "string",
+                      "description": "Terminal name (for terminal type)"
+                    },
+                    "cwd": {
+                      "type": "string",
+                      "description": "Working directory"
+                    },
+                    "path": {
+                      "type": "string",
+                      "description": "Folder path (for openInDevContainer/openRemoteSSH)"
+                    },
+                    "host": {
+                      "type": "string",
+                      "description": "SSH host name (for openRemoteSSH)"
+                    },
+                    "tunnelName": {
+                      "type": "string",
+                      "description": "Tunnel name (for openRemoteTunnel)"
+                    }
+                  },
+                  "required": [
+                    "type"
+                  ],
+                  "not": {
+                    "required": [
+                      "ref"
+                    ]
+                  }
+                }
+              },
+              "continueOnError": {
+                "type": "boolean",
+                "description": "Continue remaining actions when one action fails"
+              },
+              "parallel": {
+                "type": "array",
+                "description": "Parallel actions",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "description": {
+                      "type": "string",
+                      "description": "Description shown on hover"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "terminal",
+                        "shellCommand",
+                        "vscodeCommand",
+                        "task",
+                        "openInDevContainer",
+                        "openRemoteSSH",
+                        "openRemoteTunnel"
+                      ],
+                      "description": "Action type"
+                    },
+                    "command": {
+                      "type": "string",
+                      "description": "Command to execute"
+                    },
+                    "args": {
+                      "type": "array",
+                      "description": "Command arguments (for vscodeCommand type)"
+                    },
+                    "terminal": {
+                      "type": "string",
+                      "description": "Terminal name (for terminal type)"
+                    },
+                    "cwd": {
+                      "type": "string",
+                      "description": "Working directory"
+                    },
+                    "path": {
+                      "type": "string",
+                      "description": "Folder path (for openInDevContainer/openRemoteSSH)"
+                    },
+                    "host": {
+                      "type": "string",
+                      "description": "SSH host name (for openRemoteSSH)"
+                    },
+                    "tunnelName": {
+                      "type": "string",
+                      "description": "Tunnel name (for openRemoteTunnel)"
+                    }
+                  },
+                  "required": [
+                    "type"
+                  ],
+                  "not": {
+                    "required": [
+                      "ref"
+                    ]
+                  }
+                }
+              },
               "children": {
                 "type": "array",
                 "description": "Child menu items",
@@ -167,6 +304,33 @@
             },
             "required": [
               "label"
+            ],
+            "not": {
+              "required": [
+                "ref"
+              ]
+            },
+            "anyOf": [
+              {
+                "required": [
+                  "children"
+                ]
+              },
+              {
+                "required": [
+                  "actions"
+                ]
+              },
+              {
+                "required": [
+                  "parallel"
+                ]
+              },
+              {
+                "required": [
+                  "type"
+                ]
+              }
             ]
           }
         }
@@ -191,6 +355,11 @@
         },
         {
           "command": "taskPilot.openGlobalSettings",
+          "when": "view == taskPilot.sidebarView",
+          "group": "navigation"
+        },
+        {
+          "command": "taskPilot.exportGlobalMenu",
           "when": "view == taskPilot.sidebarView",
           "group": "navigation"
         }

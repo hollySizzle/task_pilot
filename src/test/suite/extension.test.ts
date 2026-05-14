@@ -24,6 +24,7 @@ suite('Extension Test Suite', () => {
         const commands = await vscode.commands.getCommands();
         assert.ok(commands.includes('taskPilot.showMenu'), 'taskPilot.showMenu command should be registered');
         assert.ok(commands.includes('taskPilot.openGlobalSettings'), 'taskPilot.openGlobalSettings command should be registered');
+        assert.ok(commands.includes('taskPilot.exportGlobalMenu'), 'taskPilot.exportGlobalMenu command should be registered');
     });
 
     test('Configuration should have correct properties', () => {
@@ -116,5 +117,40 @@ suite('Extension Integration Test Suite', () => {
         assert.ok(ext!.packageJSON, 'Extension should have package.json');
         assert.strictEqual(ext!.packageJSON.name, 'taskpilot', 'Extension name should be taskpilot');
         assert.strictEqual(ext!.packageJSON.publisher, 'hollySizzle', 'Publisher should be hollySizzle');
+    });
+
+    test('exportGlobalMenu should accept a configOverride argument (Config Editor未保存対応)', async function() {
+        // Config Editor は未保存編集を含む `_currentConfig` を command に渡すことで
+        // clipboard に stale な JSON が出るのを防ぐ。command 側がその override を
+        // 受け取って source として使うことを固定する。
+        this.timeout(5000);
+
+        const editingConfig = {
+            version: '1.0',
+            menu: [
+                {
+                    label: 'Unsaved Export Probe',
+                    type: 'terminal',
+                    command: 'echo unsaved'
+                }
+            ]
+        };
+
+        const before = await vscode.env.clipboard.readText();
+        try {
+            await vscode.commands.executeCommand('taskPilot.exportGlobalMenu', editingConfig);
+            const after = await vscode.env.clipboard.readText();
+
+            // 受け取った clipboard JSON に override の項目が出ていれば override 経路が使われている。
+            assert.notStrictEqual(after, before, 'clipboard should be updated by export command');
+            const parsed = JSON.parse(after);
+            assert.ok(Array.isArray(parsed), 'clipboard should contain a JSON array');
+            assert.ok(
+                parsed.some((item: { label?: string }) => item.label === 'Unsaved Export Probe'),
+                'export should include the override-only item, proving _currentConfig was used'
+            );
+        } finally {
+            await vscode.env.clipboard.writeText(before);
+        }
     });
 });

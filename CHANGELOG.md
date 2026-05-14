@@ -5,6 +5,24 @@ All notable changes to the "TaskPilot" extension will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.6.5] - 2026-05-14
+
+### Added
+- Added `taskPilot.globalMenu` as a documented user-settings menu surface that supports inline `MenuItem` shapes such as `children`, `actions`, `parallel`, `args`, and `continueOnError`
+- Added explicit `taskPilot.exportGlobalMenu` command to copy exportable workspace menu items as JSON for `taskPilot.globalMenu`
+- Added Config Editor toolbar action for exporting global menu JSON
+
+### Changed
+- Changed global menu validation to reject `ref` consistently because user settings do not provide a `commands` section
+- Changed the settings schema for `taskPilot.globalMenu` to match runtime validation more closely
+- Changed menu merge behavior so colliding workspace and global categories recursively merge children while keeping workspace priority
+- Changed Config Editor export flow to use the editor's current state when exporting from the editor UI
+
+### Documentation
+- Documented global menu constraints, one-way export behavior, and collision rules
+
 ## [0.1.0] - 2026-01-04
 
 ### Added

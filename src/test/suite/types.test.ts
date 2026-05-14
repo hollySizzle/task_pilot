@@ -1,5 +1,7 @@
 import * as assert from 'assert';
-import { validateConfig, parseMenuConfig, YamlParseError } from '../../yaml-parser';
+import * as fs from 'fs';
+import * as path from 'path';
+import { validateConfig, validateGlobalMenu, parseMenuConfig, YamlParseError } from '../../yaml-parser';
 import type { MenuConfig, MenuItem, ActionType } from '../../types';
 
 suite('Type Definition Test Suite', () => {
@@ -255,6 +257,270 @@ suite('Type Definition Test Suite', () => {
             const { result } = validateConfig(config);
             assert.strictEqual(result.valid, false);
             assert.ok(result.errors.some(e => e.message.includes('"ref" must be a string')));
+        });
+    });
+
+    suite('Global Menu Validation', () => {
+
+        test('should accept global menu with nested actions and parallel items', () => {
+            const globalMenu = [
+                {
+                    label: 'Utilities',
+                    children: [
+                        {
+                            label: 'Prep + Test',
+                            actions: [
+                                { type: 'shellCommand', command: './scripts/prepare.sh' },
+                                { type: 'terminal', command: 'npm test', terminal: 'tests' }
+                            ],
+                            continueOnError: true
+                        },
+                        {
+                            label: 'Dual Watch',
+                            parallel: [
+                                { type: 'terminal', command: 'npm run watch:web', terminal: 'web' },
+                                { type: 'terminal', command: 'npm run watch:ext', terminal: 'ext' }
+                            ]
+                        },
+                        {
+                            label: 'Open Extensions',
+                            type: 'vscodeCommand',
+                            command: 'workbench.view.extensions',
+                            args: ['installed']
+                        }
+                    ]
+                }
+            ];
+
+            const { result, menu } = validateGlobalMenu(globalMenu);
+            assert.strictEqual(result.valid, true);
+            assert.ok(menu);
+            assert.strictEqual(menu?.length, 1);
+        });
+
+        test('should reject ref in global menu root item', () => {
+            const { result } = validateGlobalMenu([
+                { label: 'Build', ref: 'build' }
+            ]);
+
+            assert.strictEqual(result.valid, false);
+            assert.ok(result.errors.some(e => e.path === 'taskPilot.globalMenu[0].ref'));
+        });
+
+        test('should reject ref in global menu action item', () => {
+            const { result } = validateGlobalMenu([
+                {
+                    label: 'CI',
+                    actions: [
+                        { ref: 'build' }
+                    ]
+                }
+            ]);
+
+            assert.strictEqual(result.valid, false);
+            assert.ok(result.errors.some(e => e.path === 'taskPilot.globalMenu[0].actions[0].ref'));
+        });
+
+        test('should reject ref when combined with children (category branch)', () => {
+            const { result } = validateGlobalMenu([
+                {
+                    label: 'Bad Category',
+                    ref: 'build',
+                    children: [
+                        { label: 'Open Settings', type: 'vscodeCommand', command: 'workbench.action.openSettings' }
+                    ]
+                }
+            ]);
+
+            assert.strictEqual(result.valid, false);
+            assert.ok(
+                result.errors.some(e => e.path === 'taskPilot.globalMenu[0].ref'),
+                'ref combined with children should be rejected at the item path'
+            );
+        });
+
+        test('should reject ref at item level when combined with actions array', () => {
+            const { result } = validateGlobalMenu([
+                {
+                    label: 'Bad Actions Item',
+                    ref: 'build',
+                    actions: [
+                        { type: 'terminal', command: 'npm test' }
+                    ]
+                }
+            ]);
+
+            assert.strictEqual(result.valid, false);
+            assert.ok(
+                result.errors.some(e => e.path === 'taskPilot.globalMenu[0].ref'),
+                'ref combined with actions should be rejected at the item path'
+            );
+        });
+
+        test('should reject ref at item level when combined with parallel array', () => {
+            const { result } = validateGlobalMenu([
+                {
+                    label: 'Bad Parallel Item',
+                    ref: 'watch',
+                    parallel: [
+                        { type: 'terminal', command: 'npm run watch:a', terminal: 'a' },
+                        { type: 'terminal', command: 'npm run watch:b', terminal: 'b' }
+                    ]
+                }
+            ]);
+
+            assert.strictEqual(result.valid, false);
+            assert.ok(
+                result.errors.some(e => e.path === 'taskPilot.globalMenu[0].ref'),
+                'ref combined with parallel should be rejected at the item path'
+            );
+        });
+
+        test('should reject ref in nested child item', () => {
+            const { result } = validateGlobalMenu([
+                {
+                    label: 'Utilities',
+                    children: [
+                        { label: 'Build', ref: 'build' }
+                    ]
+                }
+            ]);
+
+            assert.strictEqual(result.valid, false);
+            assert.ok(
+                result.errors.some(e => e.path === 'taskPilot.globalMenu[0].children[0].ref'),
+                'nested child ref should be rejected with full path'
+            );
+        });
+
+        test('should reject ref in nested category child with children', () => {
+            const { result } = validateGlobalMenu([
+                {
+                    label: 'Top',
+                    children: [
+                        {
+                            label: 'Mid',
+                            ref: 'build',
+                            children: [
+                                { label: 'Leaf', type: 'terminal', command: 'echo leaf' }
+                            ]
+                        }
+                    ]
+                }
+            ]);
+
+            assert.strictEqual(result.valid, false);
+            assert.ok(
+                result.errors.some(e => e.path === 'taskPilot.globalMenu[0].children[0].ref'),
+                'nested category item with ref should be rejected'
+            );
+        });
+    });
+
+    suite('Workspace Config - ref + children tolerance', () => {
+        test('workspace config (allowRef: true) keeps tolerating ref + children for compatibility', () => {
+            // workspace YAML 側は ref と children を併用しても元々通っており、runtime 上は
+            // children が優先される。globalMenu の閉鎖を意識した変更で、workspace 側の
+            // 互換性を不必要に壊さないことを固定する。
+            const config = {
+                version: '1.0',
+                commands: {
+                    build: { type: 'terminal', command: 'npm run build' }
+                },
+                menu: [
+                    {
+                        label: 'Category',
+                        ref: 'build',
+                        children: [
+                            { label: 'Child', type: 'terminal', command: 'echo c' }
+                        ]
+                    }
+                ]
+            };
+
+            const { result } = validateConfig(config);
+            assert.strictEqual(result.valid, true);
+        });
+    });
+
+    suite('Global Menu Settings Schema (package.json parity)', () => {
+        // package.json の `taskPilot.globalMenu` schema と runtime validation の
+        // 不整合を検知する parity ガード。schema 側で「ref 非対応」「action item の
+        // 最低条件」を表現しないと Settings UI が invalid object を保存できてしまうため、
+        // 制約が落ちないように固定する。
+        const packageJsonPath = path.resolve(__dirname, '..', '..', '..', 'package.json');
+        const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+        const globalMenuSchema = pkg.contributes.configuration.properties['taskPilot.globalMenu'];
+        const itemsSchema = globalMenuSchema.items;
+
+        test('top-level item schema should forbid ref via JSON Schema "not"', () => {
+            assert.ok(itemsSchema.not, 'items.not should be defined');
+            assert.ok(
+                Array.isArray(itemsSchema.not.required) && itemsSchema.not.required.includes('ref'),
+                'top-level items must declare not.required: ["ref"]'
+            );
+        });
+
+        test('top-level item schema should require at least one action shape via anyOf', () => {
+            assert.ok(Array.isArray(itemsSchema.anyOf), 'items.anyOf must be defined');
+            const requiredKeys = itemsSchema.anyOf
+                .map((branch: { required?: string[] }) => branch.required?.[0])
+                .filter(Boolean) as string[];
+
+            for (const key of ['children', 'actions', 'parallel', 'type']) {
+                assert.ok(
+                    requiredKeys.includes(key),
+                    `anyOf should require one of children/actions/parallel/type (missing: ${key})`
+                );
+            }
+        });
+
+        test('nested actions[] items must require type and forbid ref', () => {
+            const actionsItems = itemsSchema.properties.actions.items;
+            assert.ok(
+                Array.isArray(actionsItems.required) && actionsItems.required.includes('type'),
+                'actions[].items.required must include "type"'
+            );
+            assert.ok(actionsItems.not, 'actions[].items.not should be defined');
+            assert.ok(
+                Array.isArray(actionsItems.not.required) && actionsItems.not.required.includes('ref'),
+                'actions[].items must declare not.required: ["ref"]'
+            );
+        });
+
+        test('nested parallel[] items must require type and forbid ref', () => {
+            const parallelItems = itemsSchema.properties.parallel.items;
+            assert.ok(
+                Array.isArray(parallelItems.required) && parallelItems.required.includes('type'),
+                'parallel[].items.required must include "type"'
+            );
+            assert.ok(parallelItems.not, 'parallel[].items.not should be defined');
+            assert.ok(
+                Array.isArray(parallelItems.not.required) && parallelItems.not.required.includes('ref'),
+                'parallel[].items must declare not.required: ["ref"]'
+            );
+        });
+
+        test('schema must not expose ref as a property of globalMenu items', () => {
+            // ref を properties に出すと Settings UI の補完で勧めてしまうため、
+            // properties から除外することも併せて固定する。
+            assert.ok(
+                itemsSchema.properties.ref === undefined,
+                'schema must not expose ref as a property of taskPilot.globalMenu items'
+            );
+
+            // runtime 側でも同じケースを reject することを並行確認。
+            const sample = [
+                {
+                    label: 'Bad',
+                    ref: 'build',
+                    children: [
+                        { label: 'C', type: 'terminal', command: 'echo' }
+                    ]
+                }
+            ];
+            const { result } = validateGlobalMenu(sample);
+            assert.strictEqual(result.valid, false);
         });
     });
 
