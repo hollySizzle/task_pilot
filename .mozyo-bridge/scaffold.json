@@ -1,17 +1,41 @@
 {
   "files": {
+    ".claude-nagger/.gitignore": {
+      "sha256": "19d56605cf7f92cfd442b5475944b93f7071f171675405e9a1a4f5003068a33e"
+    },
+    ".claude-nagger/command_conventions.yaml.example": {
+      "sha256": "a88052af5effaa155cf3636f94472c812ff42ca35ad1a61a4a2b79b824624b69"
+    },
+    ".claude-nagger/config.yaml.example": {
+      "sha256": "44cbab706464c834b731c1a7ecfc0d7ebfc83264050049455a443ae75a25d3f8"
+    },
+    ".claude-nagger/mcp_conventions.yaml.example": {
+      "sha256": "75d559e0fcdf0e4828ac9c02e70dacef250538eb685d40409118b77d2f8383e3"
+    },
+    ".mozyo-bridge/docs/catalog.yaml.example": {
+      "sha256": "37b5bb52d7bd3cb9563594d3581f34344726978dcf751a617bd8119b366be627"
+    },
+    ".mozyo-bridge/rules/docs_catalog_governance.yaml": {
+      "sha256": "bff203f1b11dc46888b584cddaa48968302f2ef2bccae96c91b8abd4d3c9eb9d"
+    },
+    ".mozyo-bridge/rules/llm_rule_authoring.md": {
+      "sha256": "02b22f058d41dd5bbeca0faeb2eba289623a0bfebf5d784cf5f099ff8e2cafde"
+    },
+    ".mozyo-bridge/tmux/agent-ui.conf": {
+      "sha256": "d27aa1b8a0216654e14049a23b8b8d087b249d19a2a84725bd40587d5d69752a"
+    },
     "AGENTS.md": {
-      "sha256": "a199e37c78d9956bcfada494f70978d861c23e0f8dcb58cc12f2388f177a484f"
+      "sha256": "9067f70c1d089171a02c49c3ef3dfc669704daae727e659a3effff0e03463441"
     },
     "CLAUDE.md": {
-      "sha256": "ecc9314384b9cd9d4d0bcf83a9c34232f97dc86f9ee33c61988a53b625b471be"
+      "sha256": "2cfc42054f2ed322357b38e8313af422e08eb23a76c6dac899a16da93a0f3f21"
     }
   },
   "generated_by": "mozyo-bridge 0.5.1",
   "mode": "central",
-  "preset": "asana",
-  "preset_hash": "33cd84b4978bf042b7a0e8f87a06da643ccb0c79ae5c0fabf64086600249ead6",
-  "preset_version": "2026.05.17.2",
-  "rule_path": "${MOZYO_BRIDGE_HOME:-~/.mozyo_bridge}/rules/presets/asana/agent-workflow.md",
+  "preset": "redmine-governed",
+  "preset_hash": "c2f2dc795b0b2e712f6ff52da0b1d46c8559936daa90b93250ad7133115f6a63",
+  "preset_version": "2026.05.28.1",
+  "rule_path": "${MOZYO_BRIDGE_HOME:-~/.mozyo_bridge}/rules/presets/redmine-governed/agent-workflow.md",
   "schema_version": 2
 }
