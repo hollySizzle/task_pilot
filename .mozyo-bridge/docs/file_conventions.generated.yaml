@@ -1,0 +1,39 @@
+# This file is generated from .mozyo-bridge/docs/catalog.yaml.
+# Do not edit manually.
+rules:
+- name: agent guardrail docs
+  patterns:
+  - AGENTS.md
+  - CLAUDE.md
+  - .mozyo-bridge/rules/**
+  - .mozyo-bridge/docs/catalog.yaml
+  - .claude/skills/**
+  - .codex/skills/**
+  severity: block
+  message: 'このファイルを変更する場合は､ @.mozyo-bridge/rules/llm_rule_authoring.md と @.mozyo-bridge/rules/docs_catalog_governance.yaml
+    をよく確認し従うこと
+
+    作業を続けるためには､上記ドキュメントを確認したことを示してください
+
+    '
+- name: implementation source (placeholder)
+  patterns:
+  - src/**
+  - lib/**
+  - config/**
+  severity: warn
+  message: 'このファイルを変更する場合は､ @.mozyo-bridge/rules/llm_rule_authoring.md をよく確認し従うこと
+
+    作業を続けるためには､上記ドキュメントを確認したことを示してください
+
+    '
+- name: tests (placeholder)
+  patterns:
+  - tests/**
+  - test/**
+  severity: warn
+  message: 'このファイルを変更する場合は､ @.mozyo-bridge/rules/llm_rule_authoring.md をよく確認し従うこと
+
+    作業を続けるためには､上記ドキュメントを確認したことを示してください
+
+    '
