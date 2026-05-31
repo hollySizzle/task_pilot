@@ -1,0 +1,11 @@
+# task_pilot workspace-local Redmine default (startup checkpoint)
+# 認証(API key)は意図的に省略 — secret は user-level ~/.codex/config.toml に保持する。
+# bootstrap.md (vibes/docs/logics) の Redmine default-project schema に準拠。
+[redmine]
+default_project = "task_pilot"
+default_project_name = "task_pilot"
+default_project_url = "https://redmine.giken.or.jp/projects/task_pilot"
+
+[mcp_servers.redmine_epic_grid]
+url = "https://redmine.giken.or.jp/mcp/rpc"
+http_headers = { X-Default-Project = "task_pilot" }
