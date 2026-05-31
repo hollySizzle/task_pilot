@@ -12,6 +12,8 @@ import { ResolvedAction, MultipleActionOptions, MultipleActionResult, ActionErro
  * ActionExecutor - アクション実行クラス
  */
 export class ActionExecutor implements vscode.Disposable {
+    private static readonly TERMINAL_SEND_CHUNK_SIZE_BYTES = 512;
+
     /** 管理中のターミナル (名前 -> Terminal) */
     private terminals: Map<string, vscode.Terminal> = new Map();
 
@@ -118,7 +120,7 @@ export class ActionExecutor implements vscode.Disposable {
         terminal.show(true);
 
         // コマンドを送信
-        terminal.sendText(action.command!);
+        this.sendTerminalCommand(terminal, action.command!);
     }
 
     /**
@@ -478,7 +480,7 @@ export class ActionExecutor implements vscode.Disposable {
 
         // コマンドを && で結合して送信
         const combinedCommand = actions.map(a => a.command).join(' && ');
-        terminal.sendText(combinedCommand);
+        this.sendTerminalCommand(terminal, combinedCommand);
     }
 
     /**
@@ -525,7 +527,7 @@ export class ActionExecutor implements vscode.Disposable {
 
             // ターミナルアクションのみコマンドを送信
             if (action.type === 'terminal' && action.command) {
-                terminal.sendText(action.command);
+                this.sendTerminalCommand(terminal, action.command);
             }
         }
 
@@ -545,5 +547,38 @@ export class ActionExecutor implements vscode.Disposable {
         this.outputChannel.dispose();
         // ターミナルは明示的に閉じない（ユーザーが作業中かもしれない）
         this.terminals.clear();
+    }
+
+    private sendTerminalCommand(terminal: vscode.Terminal, command: string): void {
+        for (const chunk of this.splitTerminalText(command, ActionExecutor.TERMINAL_SEND_CHUNK_SIZE_BYTES)) {
+            terminal.sendText(chunk, false);
+        }
+
+        terminal.sendText('', true);
+    }
+
+    private splitTerminalText(text: string, maxBytes: number): string[] {
+        const chunks: string[] = [];
+        let current = '';
+        let currentBytes = 0;
+
+        for (const char of text) {
+            const charBytes = Buffer.byteLength(char, 'utf8');
+
+            if (current && currentBytes + charBytes > maxBytes) {
+                chunks.push(current);
+                current = '';
+                currentBytes = 0;
+            }
+
+            current += char;
+            currentBytes += charBytes;
+        }
+
+        if (current) {
+            chunks.push(current);
+        }
+
+        return chunks;
     }
 }

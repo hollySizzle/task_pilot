@@ -80,6 +80,34 @@ suite('ActionExecutor Test Suite', () => {
             const terminal = vscode.window.terminals.find(t => t.name === 'CwdTest');
             assert.ok(terminal, 'Terminal with cwd should be created');
         });
+
+        test('should split long terminal command input by UTF-8 byte size', () => {
+            const sent: Array<{ text: string; shouldExecute?: boolean }> = [];
+            const terminal = {
+                sendText: (text: string, shouldExecute?: boolean) => {
+                    sent.push({ text, shouldExecute });
+                }
+            } as vscode.Terminal;
+            const command = `echo "${'abcあいう'.repeat(120)}"`;
+
+            (executor as unknown as {
+                sendTerminalCommand: (terminal: vscode.Terminal, command: string) => void;
+            }).sendTerminalCommand(terminal, command);
+
+            assert.ok(sent.length > 2, 'Long command should be sent in multiple chunks plus Enter');
+
+            const commandChunks = sent.slice(0, -1);
+            for (const chunk of commandChunks) {
+                assert.strictEqual(chunk.shouldExecute, false);
+                assert.ok(
+                    Buffer.byteLength(chunk.text, 'utf8') <= 512,
+                    `Chunk should be no larger than 512 bytes: ${Buffer.byteLength(chunk.text, 'utf8')}`
+                );
+            }
+
+            assert.strictEqual(commandChunks.map(chunk => chunk.text).join(''), command);
+            assert.deepStrictEqual(sent[sent.length - 1], { text: '', shouldExecute: true });
+        });
     });
 
     suite('Shell Command Actions', () => {
