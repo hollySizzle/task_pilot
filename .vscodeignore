@@ -16,6 +16,16 @@ jest.config.js
 .env
 .mcp.json
 .claude/**
+.claude-nagger/**
+.codex/**
+.mozyo-bridge/**
+.github/**
+tmp/**
+.jest_output/**
+.c8_output/**
+AGENTS.md
+CLAUDE.md
+**/.DS_Store
 media/__tests__/**
 coverage/**
 scripts/**

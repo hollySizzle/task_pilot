@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.8] - 2026-05-31
+
+### Fixed
+- Fixed long terminal commands still being truncated near the ~1024-byte boundary: the real cause is the Unix tty canonical input-line limit (`MAX_CANON`/`MAX_INPUT` = 1024 bytes), which chunking/timing cannot avoid. On macOS/Linux, long commands (>1000 bytes) are now written to a dedicated private temp directory (`mkdtemp`, 0700, exclusive `wx` create) and executed via a short `source '<file>'; rm -rf '<dir>'` line, so the full command—including multibyte (e.g. Japanese) characters—is sent intact regardless of length. Short commands are still sent directly, and Windows falls back to the existing chunked send. (#10831)
+
 ## [0.6.7] - 2026-05-31
 
 ### Fixed
