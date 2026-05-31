@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.7] - 2026-05-31
+
+### Fixed
+- Fixed long terminal command input being truncated at the ~1024-byte transport boundary by chunking command text into UTF-8 byte-bounded segments (`sendText(chunk, false)`) with a final Enter, so long commands including multibyte (e.g. Japanese) characters are sent intact (#10817)
+
 ## [0.6.6] - 2026-05-14
 
 ### Changed
