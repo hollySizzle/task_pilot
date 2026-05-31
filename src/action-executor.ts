@@ -14,6 +14,14 @@ import { ResolvedAction, MultipleActionOptions, MultipleActionResult, ActionErro
 export class ActionExecutor implements vscode.Disposable {
     private static readonly TERMINAL_SEND_CHUNK_SIZE_BYTES = 512;
 
+    /**
+     * 各 chunk 投入後に挟む待機時間 (ms)。
+     * 同一 tick で sendText を連続実行すると VS Code terminal transport 側で
+     * 入力が再結合され、1024 byte 付近で途中切断される事象を回避するため、
+     * chunk ごとに yield して別 tick で flush させる。
+     */
+    private static readonly TERMINAL_SEND_CHUNK_DELAY_MS = 10;
+
     /** 管理中のターミナル (名前 -> Terminal) */
     private terminals: Map<string, vscode.Terminal> = new Map();
 
@@ -120,7 +128,7 @@ export class ActionExecutor implements vscode.Disposable {
         terminal.show(true);
 
         // コマンドを送信
-        this.sendTerminalCommand(terminal, action.command!);
+        await this.sendTerminalCommand(terminal, action.command!);
     }
 
     /**
@@ -480,7 +488,7 @@ export class ActionExecutor implements vscode.Disposable {
 
         // コマンドを && で結合して送信
         const combinedCommand = actions.map(a => a.command).join(' && ');
-        this.sendTerminalCommand(terminal, combinedCommand);
+        await this.sendTerminalCommand(terminal, combinedCommand);
     }
 
     /**
@@ -527,7 +535,7 @@ export class ActionExecutor implements vscode.Disposable {
 
             // ターミナルアクションのみコマンドを送信
             if (action.type === 'terminal' && action.command) {
-                this.sendTerminalCommand(terminal, action.command);
+                await this.sendTerminalCommand(terminal, action.command);
             }
         }
 
@@ -549,12 +557,21 @@ export class ActionExecutor implements vscode.Disposable {
         this.terminals.clear();
     }
 
-    private sendTerminalCommand(terminal: vscode.Terminal, command: string): void {
-        for (const chunk of this.splitTerminalText(command, ActionExecutor.TERMINAL_SEND_CHUNK_SIZE_BYTES)) {
+    private async sendTerminalCommand(terminal: vscode.Terminal, command: string): Promise<void> {
+        const chunks = this.splitTerminalText(command, ActionExecutor.TERMINAL_SEND_CHUNK_SIZE_BYTES);
+
+        for (const chunk of chunks) {
             terminal.sendText(chunk, false);
+            // 次の chunk を同一 tick で送らず、transport に flush の機会を与える
+            await this.delay(ActionExecutor.TERMINAL_SEND_CHUNK_DELAY_MS);
         }
 
+        // 全 chunk 送信後に Enter を送る
         terminal.sendText('', true);
+    }
+
+    private delay(ms: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 
     private splitTerminalText(text: string, maxBytes: number): string[] {

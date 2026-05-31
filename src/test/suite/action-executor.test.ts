@@ -81,7 +81,7 @@ suite('ActionExecutor Test Suite', () => {
             assert.ok(terminal, 'Terminal with cwd should be created');
         });
 
-        test('should split long terminal command input by UTF-8 byte size', () => {
+        test('should split long terminal command input by UTF-8 byte size', async () => {
             const sent: Array<{ text: string; shouldExecute?: boolean }> = [];
             const terminal = {
                 sendText: (text: string, shouldExecute?: boolean) => {
@@ -90,8 +90,8 @@ suite('ActionExecutor Test Suite', () => {
             } as vscode.Terminal;
             const command = `echo "${'abcあいう'.repeat(120)}"`;
 
-            (executor as unknown as {
-                sendTerminalCommand: (terminal: vscode.Terminal, command: string) => void;
+            await (executor as unknown as {
+                sendTerminalCommand: (terminal: vscode.Terminal, command: string) => Promise<void>;
             }).sendTerminalCommand(terminal, command);
 
             assert.ok(sent.length > 2, 'Long command should be sent in multiple chunks plus Enter');
@@ -107,6 +107,43 @@ suite('ActionExecutor Test Suite', () => {
 
             assert.strictEqual(commandChunks.map(chunk => chunk.text).join(''), command);
             assert.deepStrictEqual(sent[sent.length - 1], { text: '', shouldExecute: true });
+        });
+
+        test('should yield between chunks and send Enter only after all chunks (regression #10831)', async () => {
+            const events: Array<{ type: 'chunk' | 'enter'; text: string }> = [];
+            const terminal = {
+                sendText: (text: string, shouldExecute?: boolean) => {
+                    events.push({ type: shouldExecute ? 'enter' : 'chunk', text });
+                }
+            } as vscode.Terminal;
+
+            // 約2.5KB の prompt 相当。512 byte chunk で複数分割される。
+            const command = `claude "${'x'.repeat(2500)}"`;
+
+            // 同一 tick での再結合を防ぐため、helper が await で yield することを検証する。
+            // 別 tick で走るマイクロ/マクロタスクから観測し、全 chunk 送信前に
+            // Enter が混入していないことを確認する。
+            const sendPromise = (executor as unknown as {
+                sendTerminalCommand: (terminal: vscode.Terminal, command: string) => Promise<void>;
+            }).sendTerminalCommand(terminal, command);
+
+            // 同期実行が完了していない（= await で yield している）ことを確認。
+            const enterCountBeforeAwait = events.filter(e => e.type === 'enter').length;
+            assert.strictEqual(enterCountBeforeAwait, 0, 'Enter must not be sent synchronously before yielding');
+
+            await sendPromise;
+
+            const chunks = events.filter(e => e.type === 'chunk');
+            const enters = events.filter(e => e.type === 'enter');
+
+            assert.ok(chunks.length > 1, 'Command should be split into multiple chunks');
+            assert.strictEqual(enters.length, 1, 'Exactly one Enter should be sent');
+
+            // Enter は必ず最後のイベント。
+            assert.strictEqual(events[events.length - 1].type, 'enter', 'Enter must be the last event');
+
+            // chunk の連結が元コマンドと一致（順序保持・欠落なし）。
+            assert.strictEqual(chunks.map(c => c.text).join(''), command);
         });
     });
 
