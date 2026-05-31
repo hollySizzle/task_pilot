@@ -5,6 +5,8 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as os from 'os';
+import * as fs from 'fs';
 import { exec } from 'child_process';
 import { ResolvedAction, MultipleActionOptions, MultipleActionResult, ActionError, ActionGroup } from './types';
 
@@ -12,14 +14,19 @@ import { ResolvedAction, MultipleActionOptions, MultipleActionResult, ActionErro
  * ActionExecutor - アクション実行クラス
  */
 export class ActionExecutor implements vscode.Disposable {
+    /**
+     * 1 行でそのまま投入して安全な command の最大 byte 数。
+     * tty の canonical 入力キュー (MAX_INPUT / MAX_CANON = 1024 byte) を超える
+     * 1 行入力は超過分が tty 側で破棄される。これを超える command は temp ファイル
+     * 経由 (`source <file>`) で投入し、1024 byte 行制限を構造的に回避する。
+     * margin を取り 1024 より小さい値にしている。
+     */
+    private static readonly TERMINAL_SEND_DIRECT_MAX_BYTES = 1000;
+
+    /** fallback (paced chunk 送信) 用の chunk サイズ */
     private static readonly TERMINAL_SEND_CHUNK_SIZE_BYTES = 512;
 
-    /**
-     * 各 chunk 投入後に挟む待機時間 (ms)。
-     * 同一 tick で sendText を連続実行すると VS Code terminal transport 側で
-     * 入力が再結合され、1024 byte 付近で途中切断される事象を回避するため、
-     * chunk ごとに yield して別 tick で flush させる。
-     */
+    /** fallback (paced chunk 送信) で各 chunk 後に挟む待機時間 (ms) */
     private static readonly TERMINAL_SEND_CHUNK_DELAY_MS = 10;
 
     /** 管理中のターミナル (名前 -> Terminal) */
@@ -557,17 +564,89 @@ export class ActionExecutor implements vscode.Disposable {
         this.terminals.clear();
     }
 
+    /**
+     * ターミナルへ command を投入する。
+     *
+     * 根本原因: tty の canonical 入力キュー (MAX_INPUT / MAX_CANON = 1024 byte)
+     * を超える 1 行入力は tty 側で超過分が破棄され、長い command が約 1024 byte で
+     * 途中切断される。chunk 分割や送信 timing 調整では tty 行制限そのものは回避できない。
+     *
+     * 対策:
+     * - 短い command (<= TERMINAL_SEND_DIRECT_MAX_BYTES): そのまま 1 行で送る
+     *   (端末履歴に可読な形で残る)。
+     * - 長い command (POSIX shell): temp ファイルへ全文を書き出し、`source <file>` の
+     *   短い 1 行だけ送る。投入される 1 行が tty 行制限内に収まり、command 全体が
+     *   欠落なく実行される。
+     *
+     * cross-platform 注意:
+     * tty の MAX_CANON 行制限は Unix tty 固有であり、Windows の ConPTY には当てはまらない。
+     * また `source` / `rm` は POSIX shell 構文で PowerShell / cmd.exe では動かない。
+     * そのため temp ファイル方式は POSIX (darwin / linux) のみに限定し、Windows では
+     * 従来同様の paced chunk 送信に fallback して既存の cross-platform 動作を壊さない。
+     * Windows / PowerShell 向けの長尺 command 対応が必要なら follow-up issue で扱う。
+     */
     private async sendTerminalCommand(terminal: vscode.Terminal, command: string): Promise<void> {
+        if (Buffer.byteLength(command, 'utf8') <= ActionExecutor.TERMINAL_SEND_DIRECT_MAX_BYTES) {
+            terminal.sendText(command, true);
+            return;
+        }
+
+        // POSIX shell 前提の temp ファイル方式は Unix 系のみ。Windows は chunk 送信。
+        if (process.platform !== 'win32') {
+            try {
+                await this.sendViaTempFile(terminal, command);
+                return;
+            } catch {
+                // temp ファイル作成に失敗した場合 (read-only tmp 等) は
+                // best-effort の paced chunk 送信に fallback する。
+            }
+        }
+
+        await this.sendChunked(terminal, command);
+    }
+
+    /**
+     * 長い command を temp ファイル経由で投入する (POSIX shell 専用)。
+     * tty の 1024 byte 行制限を回避するため command 全文を一時ファイルへ書き出し、
+     * `source <file>` の短い 1 行だけ端末へ送る。実行後は temp directory を削除する。
+     *
+     * security: world-writable な `os.tmpdir()` 直下に予測可能名のファイルを作ると
+     * symlink / race で意図しないファイルへ書き込む余地がある。これを避けるため
+     * `mkdtemp` で専用の 0700 directory を作り、その中へ排他的 (`wx`) に書き出す。
+     */
+    private async sendViaTempFile(terminal: vscode.Terminal, command: string): Promise<void> {
+        const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'taskpilot-'));
+        const file = path.join(dir, 'command.sh');
+
+        // `wx` で排他的作成 (既存 path があれば失敗)。dir は専用 0700 なので衝突しない。
+        await fs.promises.writeFile(file, `${command}\n`, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
+
+        const quotedFile = this.quoteForShell(file);
+        const quotedDir = this.quoteForShell(dir);
+        // command の成否に依らず temp directory (file 含む) を必ず削除する (`;` で連結)。
+        terminal.sendText(`source ${quotedFile}; rm -rf ${quotedDir}`, true);
+    }
+
+    /**
+     * paced chunk 送信 (temp ファイル fallback 用)。
+     * 各 chunk 後に短い delay を挟み、tty 入力キューを drain させてから次を送る。
+     */
+    private async sendChunked(terminal: vscode.Terminal, command: string): Promise<void> {
         const chunks = this.splitTerminalText(command, ActionExecutor.TERMINAL_SEND_CHUNK_SIZE_BYTES);
 
         for (const chunk of chunks) {
             terminal.sendText(chunk, false);
-            // 次の chunk を同一 tick で送らず、transport に flush の機会を与える
             await this.delay(ActionExecutor.TERMINAL_SEND_CHUNK_DELAY_MS);
         }
 
-        // 全 chunk 送信後に Enter を送る
         terminal.sendText('', true);
+    }
+
+    /**
+     * POSIX シェル向けに値を single-quote で囲んでエスケープする。
+     */
+    private quoteForShell(value: string): string {
+        return `'${value.replace(/'/g, "'\\''")}'`;
     }
 
     private delay(ms: number): Promise<void> {

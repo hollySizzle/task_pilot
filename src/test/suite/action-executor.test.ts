@@ -1,4 +1,6 @@
 import * as assert from 'assert';
+import * as fs from 'fs';
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { ActionExecutor } from '../../action-executor';
 import { ResolvedAction } from '../../types';
@@ -81,69 +83,83 @@ suite('ActionExecutor Test Suite', () => {
             assert.ok(terminal, 'Terminal with cwd should be created');
         });
 
-        test('should split long terminal command input by UTF-8 byte size', async () => {
+        test('should send a short command directly as a single line', async () => {
             const sent: Array<{ text: string; shouldExecute?: boolean }> = [];
             const terminal = {
                 sendText: (text: string, shouldExecute?: boolean) => {
                     sent.push({ text, shouldExecute });
                 }
             } as vscode.Terminal;
-            const command = `echo "${'abcあいう'.repeat(120)}"`;
+            const command = 'echo "hello world"';
 
             await (executor as unknown as {
                 sendTerminalCommand: (terminal: vscode.Terminal, command: string) => Promise<void>;
             }).sendTerminalCommand(terminal, command);
 
-            assert.ok(sent.length > 2, 'Long command should be sent in multiple chunks plus Enter');
-
-            const commandChunks = sent.slice(0, -1);
-            for (const chunk of commandChunks) {
-                assert.strictEqual(chunk.shouldExecute, false);
-                assert.ok(
-                    Buffer.byteLength(chunk.text, 'utf8') <= 512,
-                    `Chunk should be no larger than 512 bytes: ${Buffer.byteLength(chunk.text, 'utf8')}`
-                );
-            }
-
-            assert.strictEqual(commandChunks.map(chunk => chunk.text).join(''), command);
-            assert.deepStrictEqual(sent[sent.length - 1], { text: '', shouldExecute: true });
+            // 短い command はそのまま 1 行 + Enter で送られる。
+            assert.deepStrictEqual(sent, [{ text: command, shouldExecute: true }]);
         });
 
-        test('should yield between chunks and send Enter only after all chunks (regression #10831)', async () => {
-            const events: Array<{ type: 'chunk' | 'enter'; text: string }> = [];
+        test('should send a long command via temp file without truncation (regression #10831)', async function () {
+            // temp ファイル方式は POSIX shell 専用 (Windows は chunk fallback)。
+            if (process.platform === 'win32') {
+                this.skip();
+                return;
+            }
+
+            const sent: Array<{ text: string; shouldExecute?: boolean }> = [];
             const terminal = {
                 sendText: (text: string, shouldExecute?: boolean) => {
-                    events.push({ type: shouldExecute ? 'enter' : 'chunk', text });
+                    sent.push({ text, shouldExecute });
                 }
             } as vscode.Terminal;
 
-            // 約2.5KB の prompt 相当。512 byte chunk で複数分割される。
-            const command = `claude "${'x'.repeat(2500)}"`;
+            // tty MAX_INPUT/MAX_CANON (1024 byte) を確実に超える長さ。日本語混在 2.5KB 級。
+            const command = `claude "${'あ'.repeat(900)}"`;
+            assert.ok(
+                Buffer.byteLength(command, 'utf8') > 1024,
+                'Test command must exceed the 1024-byte tty line limit'
+            );
 
-            // 同一 tick での再結合を防ぐため、helper が await で yield することを検証する。
-            // 別 tick で走るマイクロ/マクロタスクから観測し、全 chunk 送信前に
-            // Enter が混入していないことを確認する。
-            const sendPromise = (executor as unknown as {
+            await (executor as unknown as {
                 sendTerminalCommand: (terminal: vscode.Terminal, command: string) => Promise<void>;
             }).sendTerminalCommand(terminal, command);
 
-            // 同期実行が完了していない（= await で yield している）ことを確認。
-            const enterCountBeforeAwait = events.filter(e => e.type === 'enter').length;
-            assert.strictEqual(enterCountBeforeAwait, 0, 'Enter must not be sent synchronously before yielding');
+            // 端末へ送られるのは短い source 行 1 本のみ。tty 行制限内に収まる。
+            assert.strictEqual(sent.length, 1, 'Only a single short line should be sent to the terminal');
+            assert.strictEqual(sent[0].shouldExecute, true, 'The source line should be executed (Enter)');
+            assert.ok(
+                Buffer.byteLength(sent[0].text, 'utf8') <= 1024,
+                `Sent line must stay within the tty line limit: ${Buffer.byteLength(sent[0].text, 'utf8')}`
+            );
 
-            await sendPromise;
+            // source した temp file と、削除対象の専用 temp directory を取り出す。
+            const match = sent[0].text.match(/^source '([^']+)'; rm -rf '([^']+)'$/);
+            assert.ok(match, `Sent line should source a temp file then remove its dir: ${sent[0].text}`);
+            const tempFile = match![1];
+            const tempDir = match![2];
 
-            const chunks = events.filter(e => e.type === 'chunk');
-            const enters = events.filter(e => e.type === 'enter');
+            // file は削除される専用 directory の中に存在する (cleanup が file を含む)。
+            assert.strictEqual(path.dirname(tempFile), tempDir, 'temp file must live inside the removed dir');
+            assert.ok(
+                path.basename(tempDir).startsWith('taskpilot-'),
+                `temp dir should be a dedicated taskpilot dir: ${tempDir}`
+            );
 
-            assert.ok(chunks.length > 1, 'Command should be split into multiple chunks');
-            assert.strictEqual(enters.length, 1, 'Exactly one Enter should be sent');
+            // 専用 directory は 0700 (所有者のみ) で作られている。
+            const dirMode = fs.statSync(tempDir).mode & 0o777;
+            assert.strictEqual(dirMode, 0o700, `temp dir must be private 0700, got ${dirMode.toString(8)}`);
 
-            // Enter は必ず最後のイベント。
-            assert.strictEqual(events[events.length - 1].type, 'enter', 'Enter must be the last event');
+            // temp ファイルには command 全文が欠落なく書き込まれている (途中切断なし)。
+            const written = fs.readFileSync(tempFile, 'utf8');
+            assert.strictEqual(
+                written,
+                command + '\n',
+                'Temp file must contain the full command untruncated, terminated by a newline'
+            );
 
-            // chunk の連結が元コマンドと一致（順序保持・欠落なし）。
-            assert.strictEqual(chunks.map(c => c.text).join(''), command);
+            // 実シェルの rm は stub では走らないため、テスト側で後始末する。
+            fs.rmSync(tempDir, { recursive: true, force: true });
         });
     });
 
