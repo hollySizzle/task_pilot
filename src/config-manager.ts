@@ -27,6 +27,50 @@ export interface GlobalMenuExportResult {
 }
 
 /**
+ * VS Code User ディレクトリ配下の共有 `task-menu.yaml` の絶対パスを解決する。
+ *
+ * `globalStorageFsPath` には `ExtensionContext.globalStorageUri.fsPath`
+ * (`<userData>/User/globalStorage/<ext-id>`) を渡す。2 階層上が User ディレクトリ
+ * (`settings.json` と同じ場所) なので、そこに `task-menu.yaml` を置く。globalStorage
+ * を基準にするため、stable / Insiders / VSCodium / portable / code-server いずれでも
+ * 正しい User ディレクトリを得られ、`${userHome}` のような未展開変数を埋め込まない。
+ * 入力が絶対パスなら返り値も常に絶対パスになる。
+ */
+export function resolveUserTaskMenuPath(globalStorageFsPath: string): string {
+    const userDir = path.dirname(path.dirname(globalStorageFsPath));
+    return path.join(userDir, 'task-menu.yaml');
+}
+
+/**
+ * export 済みの menu 配列を、User-level `task-menu.yaml` に書き出せる完全な
+ * `MenuConfig` (`version: "1.0"` + `menu`) に包む。
+ */
+export function buildMenuConfigExport(menu: MenuItem[]): MenuConfig {
+    return { version: '1.0', menu };
+}
+
+/**
+ * export 対象 menu と既存 `taskPilot.globalMenu` の top-level label 重複を返す。
+ *
+ * configPath 経由の User-level menu へ移行する際、同じ label が `globalMenu` に
+ * 残っていると重複表示 / shadow になり得るため、移行ガイダンスのために検出する。
+ * 返り値は export 側の出現順で、重複なしの label 一覧。
+ */
+export function detectGlobalMenuLabelOverlap(
+    exportedMenu: MenuItem[],
+    existingGlobalMenu: MenuItem[]
+): string[] {
+    const existingLabels = new Set(existingGlobalMenu.map(item => item.label));
+    const overlap: string[] = [];
+    for (const item of exportedMenu) {
+        if (existingLabels.has(item.label) && !overlap.includes(item.label)) {
+            overlap.push(item.label);
+        }
+    }
+    return overlap;
+}
+
+/**
  * ConfigManager - 設定ファイルの管理クラス
  */
 export class ConfigManager implements vscode.Disposable {

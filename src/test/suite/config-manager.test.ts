@@ -10,7 +10,12 @@
 
 import * as assert from 'assert';
 import * as path from 'path';
-import { ConfigManager } from '../../config-manager';
+import {
+    ConfigManager,
+    resolveUserTaskMenuPath,
+    buildMenuConfigExport,
+    detectGlobalMenuLabelOverlap,
+} from '../../config-manager';
 import { MenuItem, MenuConfig } from '../../types';
 
 suite('ConfigManager Test Suite', () => {
@@ -1351,6 +1356,105 @@ suite('Global Menu Test Suite', () => {
 
             assert.strictEqual(result.menu.length, 1);
             assert.strictEqual(result.menu[0].label, 'Saved Build');
+        });
+    });
+});
+
+/**
+ * User-level export helpers (Redmine #11409 / #11410)
+ *
+ * exportGlobalMenu の User-level YAML + configPath 自動設定で使う pure helper のテスト。
+ */
+suite('User-level export helpers', () => {
+
+    suite('resolveUserTaskMenuPath', () => {
+
+        test('derives <User>/task-menu.yaml from the globalStorage path', () => {
+            const globalStorage = path.join(
+                path.sep === '\\' ? 'C:\\Users\\u\\AppData\\Roaming\\Code' : '/Users/u/Library/Application Support/Code',
+                'User',
+                'globalStorage',
+                'pub.taskpilot'
+            );
+
+            const result = resolveUserTaskMenuPath(globalStorage);
+
+            const expected = path.join(path.dirname(path.dirname(globalStorage)), 'task-menu.yaml');
+            assert.strictEqual(result, expected);
+            assert.ok(result.endsWith(`User${path.sep}task-menu.yaml`),
+                `expected User-level task-menu.yaml, got ${result}`);
+        });
+
+        test('returns an absolute path with no unexpanded variables (configPath safety)', () => {
+            const globalStorage = '/Users/u/Library/Application Support/Code/User/globalStorage/pub.taskpilot';
+
+            const result = resolveUserTaskMenuPath(globalStorage);
+
+            assert.ok(path.isAbsolute(result), `configPath must be absolute, got ${result}`);
+            assert.ok(!result.includes('${'), `configPath must not contain unexpanded variables, got ${result}`);
+        });
+    });
+
+    suite('buildMenuConfigExport', () => {
+
+        test('wraps a menu array into a version 1.0 MenuConfig', () => {
+            const menu: MenuItem[] = [
+                { label: 'Build', type: 'terminal', command: 'npm run build' }
+            ];
+
+            const config = buildMenuConfigExport(menu);
+
+            assert.strictEqual(config.version, '1.0');
+            assert.deepStrictEqual(config.menu, menu);
+        });
+
+        test('preserves an empty menu', () => {
+            const config = buildMenuConfigExport([]);
+            assert.strictEqual(config.version, '1.0');
+            assert.deepStrictEqual(config.menu, []);
+        });
+    });
+
+    suite('detectGlobalMenuLabelOverlap', () => {
+
+        test('returns top-level labels present in both menus', () => {
+            const exported: MenuItem[] = [
+                { label: 'Build', type: 'terminal', command: 'npm run build' },
+                { label: 'Deploy', type: 'terminal', command: 'npm run deploy' }
+            ];
+            const existingGlobal: MenuItem[] = [
+                { label: 'Build', type: 'terminal', command: 'old build' },
+                { label: 'Lint', type: 'terminal', command: 'npm run lint' }
+            ];
+
+            const overlap = detectGlobalMenuLabelOverlap(exported, existingGlobal);
+
+            assert.deepStrictEqual(overlap, ['Build']);
+        });
+
+        test('returns an empty array when there is no overlap', () => {
+            const exported: MenuItem[] = [
+                { label: 'Deploy', type: 'terminal', command: 'npm run deploy' }
+            ];
+            const existingGlobal: MenuItem[] = [
+                { label: 'Build', type: 'terminal', command: 'npm run build' }
+            ];
+
+            assert.deepStrictEqual(detectGlobalMenuLabelOverlap(exported, existingGlobal), []);
+        });
+
+        test('deduplicates and preserves exported order', () => {
+            const exported: MenuItem[] = [
+                { label: 'Build', type: 'terminal', command: 'a' },
+                { label: 'Build', type: 'terminal', command: 'b' },
+                { label: 'Deploy', type: 'terminal', command: 'c' }
+            ];
+            const existingGlobal: MenuItem[] = [
+                { label: 'Deploy' },
+                { label: 'Build' }
+            ];
+
+            assert.deepStrictEqual(detectGlobalMenuLabelOverlap(exported, existingGlobal), ['Build', 'Deploy']);
         });
     });
 });

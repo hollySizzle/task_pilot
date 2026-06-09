@@ -4,7 +4,13 @@
  */
 
 import * as vscode from 'vscode';
-import { ConfigManager } from './config-manager';
+import {
+    ConfigManager,
+    resolveUserTaskMenuPath,
+    buildMenuConfigExport,
+    detectGlobalMenuLabelOverlap,
+} from './config-manager';
+import { generateYaml } from './yaml-generator';
 import { ActionExecutor } from './action-executor';
 import { QuickPickMenu } from './quick-pick-menu';
 import { SidebarViewProvider } from './sidebar-view-provider';
@@ -151,8 +157,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // Register exportGlobalMenu command
     // configOverride を渡すと、保存済み workspace YAML ではなくその config を export 元にする。
-    // Config Editor は未保存編集を含む `_currentConfig` を渡すことで、clipboard に
-    // stale な JSON が出るのを防ぐ。
+    // Config Editor は未保存編集を含む `_currentConfig` を渡すことで、stale な export が
+    // 出るのを防ぐ。export は User-level `task-menu.yaml` を書き出し、`taskPilot.configPath`
+    // を実絶対パスで User 設定に固定して、共有メニューの手動設定を不要にする。
     const exportGlobalMenuCommand = vscode.commands.registerCommand('taskPilot.exportGlobalMenu', async (configOverride?: MenuConfig) => {
         if (!configManager) {
             vscode.window.showErrorMessage(`TaskPilot: ${vscode.l10n.t('Extension not initialized')}`);
@@ -176,14 +183,38 @@ export function activate(context: vscode.ExtensionContext): void {
             return;
         }
 
-        const json = JSON.stringify(exportResult.menu, null, 2);
-        await vscode.env.clipboard.writeText(json);
+        // User-level task-menu.yaml を生成し、configPath(Global) を実絶対パスで設定する。
+        const userYamlPath = resolveUserTaskMenuPath(context.globalStorageUri.fsPath);
+        const yaml = generateYaml(buildMenuConfigExport(exportResult.menu));
+        const fileUri = vscode.Uri.file(userYamlPath);
 
+        try {
+            await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(fileUri, '..'));
+            await vscode.workspace.fs.writeFile(fileUri, Buffer.from(yaml, 'utf8'));
+            await vscode.workspace
+                .getConfiguration('taskPilot')
+                .update('configPath', userYamlPath, vscode.ConfigurationTarget.Global);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            vscode.window.showErrorMessage(
+                `TaskPilot: Failed to write User-level task-menu.yaml or update configPath (${message})`
+            );
+            return;
+        }
+
+        // 移行期の手動 paste 用に、従来どおり globalMenu JSON も clipboard へ残す。
+        await vscode.env.clipboard.writeText(JSON.stringify(exportResult.menu, null, 2));
+
+        const overlap = detectGlobalMenuLabelOverlap(exportResult.menu, configManager.getGlobalMenu());
         const skippedMessage = exportResult.skipped.length > 0
             ? ` Skipped ${exportResult.skipped.length} top-level item(s) containing ref.`
             : '';
+        const overlapMessage = overlap.length > 0
+            ? ` Existing taskPilot.globalMenu has same-label item(s) [${overlap.join(', ')}] that may duplicate/shadow this menu; remove or rename them.`
+            : '';
+
         const action = await vscode.window.showInformationMessage(
-            `TaskPilot: Copied globalMenu export to clipboard.${skippedMessage}`,
+            `TaskPilot: Wrote ${userYamlPath} and set taskPilot.configPath (User settings).${skippedMessage}${overlapMessage}`,
             'Open Settings'
         );
 
