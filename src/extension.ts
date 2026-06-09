@@ -213,12 +213,27 @@ export function activate(context: vscode.ExtensionContext): void {
             ? ` Existing taskPilot.globalMenu has same-label item(s) [${overlap.join(', ')}] that may duplicate/shadow this menu; remove or rename them.`
             : '';
 
+        // Default success action points at the setting we just changed
+        // (taskPilot.configPath). Offer the legacy globalMenu surface only when
+        // there is overlap to clean up, so users are not steered back to the
+        // deprecated migration workflow (Redmine #11410 review #54647).
+        const OPEN_CONFIG_PATH = 'Open Config Path Setting';
+        const OPEN_GLOBAL_MENU = 'Open globalMenu';
+        const actions = overlap.length > 0
+            ? [OPEN_CONFIG_PATH, OPEN_GLOBAL_MENU]
+            : [OPEN_CONFIG_PATH];
+
         const action = await vscode.window.showInformationMessage(
             `TaskPilot: Wrote ${userYamlPath} and set taskPilot.configPath (User settings).${skippedMessage}${overlapMessage}`,
-            'Open Settings'
+            ...actions
         );
 
-        if (action === 'Open Settings') {
+        if (action === OPEN_CONFIG_PATH) {
+            await vscode.commands.executeCommand(
+                'workbench.action.openSettings',
+                '@ext:hollySizzle.taskpilot taskPilot.configPath'
+            );
+        } else if (action === OPEN_GLOBAL_MENU) {
             await vscode.commands.executeCommand('taskPilot.openGlobalSettings');
         }
     });
