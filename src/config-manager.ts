@@ -500,8 +500,10 @@ export class ConfigManager implements vscode.Disposable {
             message = `TaskPilot: ${error.message}`;
         }
 
-        vscode.window.showErrorMessage(message, 'Open Settings').then(selection => {
-            if (selection === 'Open Settings') {
+        // ボタンは実際の動作 (YAML ファイルを開く) を表す label にする (#11468)
+        const openConfigFile = vscode.l10n.t('Open Config File');
+        vscode.window.showErrorMessage(message, openConfigFile).then(selection => {
+            if (selection === openConfigFile) {
                 // fallback 中はエラーの発生源 (実際に読んだ file) を開く (#11437)
                 const configPath = this.getEffectiveConfigPath() ?? this.getConfigPath();
                 if (configPath) {
@@ -519,8 +521,9 @@ export class ConfigManager implements vscode.Disposable {
     private showGlobalMenuErrorNotification(error: Error): void {
         const message = `TaskPilot: ${error.message}`;
 
-        vscode.window.showErrorMessage(message, 'Open Settings').then(selection => {
-            if (selection === 'Open Settings') {
+        const openSettings = vscode.l10n.t('Open Settings');
+        vscode.window.showErrorMessage(message, openSettings).then(selection => {
+            if (selection === openSettings) {
                 void vscode.commands.executeCommand(
                     'workbench.action.openSettings',
                     '@ext:hollySizzle.taskpilot taskPilot.globalMenu'

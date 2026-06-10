@@ -298,6 +298,47 @@ suite('Type Definition Test Suite', () => {
             assert.strictEqual(menu?.length, 1);
         });
 
+        test('should explain workspace config wrapper in global menu', () => {
+            const { result } = validateGlobalMenu([
+                {
+                    version: '1.0',
+                    menu: [
+                        { label: 'Build', type: 'terminal', command: 'npm run build' }
+                    ]
+                }
+            ]);
+
+            assert.strictEqual(result.valid, false);
+            assert.ok(
+                result.errors.some(e =>
+                    e.path === 'taskPilot.globalMenu[0]' &&
+                    e.message.includes('expects the menu array itself')
+                ),
+                'globalMenu wrapper object should produce a targeted diagnostic'
+            );
+            assert.ok(
+                !result.errors.some(e => e.path === 'taskPilot.globalMenu[0].type'),
+                'wrapper object should not be reported as an action item'
+            );
+        });
+
+        test('should explain empty global menu item shape', () => {
+            const { result } = validateGlobalMenu([{}]);
+
+            assert.strictEqual(result.valid, false);
+            assert.ok(
+                result.errors.some(e =>
+                    e.path === 'taskPilot.globalMenu[0]' &&
+                    e.message.includes('must have "label"')
+                ),
+                'empty item should produce a single item-shape diagnostic'
+            );
+            assert.ok(
+                !result.errors.some(e => e.path === 'taskPilot.globalMenu[0].type'),
+                'empty item should not be reported as an action item'
+            );
+        });
+
         test('should reject ref in global menu root item', () => {
             const { result } = validateGlobalMenu([
                 { label: 'Build', ref: 'build' }

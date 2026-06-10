@@ -142,8 +142,32 @@ function validateMenuItems(
 
         const menuItem = item as Record<string, unknown>;
 
+        const hasChildren = menuItem.children !== undefined;
+        const hasActions = menuItem.actions !== undefined;
+        const hasParallel = menuItem.parallel !== undefined;
+        const hasRef = menuItem.ref !== undefined;
+        const hasType = menuItem.type !== undefined;
+        const hasLabel = typeof menuItem.label === 'string';
+        const hasActionShape = hasChildren || hasActions || hasParallel || hasRef || hasType;
+
+        if (!hasLabel && !hasActionShape && (menuItem.version !== undefined || menuItem.menu !== undefined)) {
+            const message = path === 'taskPilot.globalMenu'
+                ? 'taskPilot.globalMenu expects the menu array itself; do not wrap it in a workspace config object with "version" or "menu"'
+                : 'Menu item appears to be a workspace config object; use a menu item with "label" and an action shape';
+            errors.push({ message, path: itemPath });
+            return;
+        }
+
+        if (!hasLabel && !hasActionShape) {
+            errors.push({
+                message: 'Menu item must have "label" and one of "children", "actions", "parallel", "ref", or "type"',
+                path: itemPath
+            });
+            return;
+        }
+
         // label is required
-        if (!menuItem.label || typeof menuItem.label !== 'string') {
+        if (!hasLabel) {
             errors.push({ message: 'Missing or invalid "label" field', path: `${itemPath}.label` });
         }
 
@@ -156,10 +180,6 @@ function validateMenuItems(
         if (menuItem.description !== undefined && typeof menuItem.description !== 'string') {
             errors.push({ message: '"description" must be a string', path: `${itemPath}.description` });
         }
-
-        const hasChildren = menuItem.children !== undefined;
-        const hasActions = menuItem.actions !== undefined;
-        const hasParallel = menuItem.parallel !== undefined;
 
         // category / actions / parallel branch では validateAction() に届かないため、
         // ここで ref を明示的に reject する。単独 action は validateAction() で評価される
