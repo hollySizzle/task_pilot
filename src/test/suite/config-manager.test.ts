@@ -10,6 +10,7 @@
 
 import * as assert from 'assert';
 import * as path from 'path';
+import * as vscode from 'vscode';
 import {
     ConfigManager,
     DEFAULT_CONFIG_RELATIVE_PATH,
@@ -1770,5 +1771,118 @@ suite('selectConfigLoadCandidate (#11436 / #11437)', () => {
                 'before the first reload the save target follows the configured path');
             manager.dispose();
         });
+    });
+});
+
+/**
+ * Dev Container / remote workspace URI / fsPath 再現テスト (Redmine #11438)
+ *
+ * ConfigManager は workspace の位置を `workspaceFolder.uri.fsPath` 経由でしか
+ * 見ない (getConfigPath / resolveLoadCandidate)。ここでは Dev Container /
+ * Remote-SSH 相当の `vscode-remote` scheme URI を実際に構築し、fsPath が
+ * remote authority を落とした container 内 POSIX path になること、その
+ * fsPath を使った configured-path 解決と fallback 選定が local と同じ規則で
+ * 動くことを回帰として固定する。
+ */
+suite('Dev Container / remote workspace URI 再現 (#11438)', () => {
+
+    /** Dev Container の workspace folder URI 相当 */
+    const devContainerWorkspaceUri = vscode.Uri.from({
+        scheme: 'vscode-remote',
+        authority: 'dev-container+1a2b3c4d5e6f',
+        path: '/workspaces/task_pilot'
+    });
+
+    /** v0.6.9 exportGlobalMenu が User settings に書く macOS 絶対パス相当 */
+    const macUserAbsolute = '/Users/u/Library/Application Support/Code/User/task-menu.yaml';
+
+    const workspaceDefaultPath = path.join(
+        devContainerWorkspaceUri.fsPath,
+        DEFAULT_CONFIG_RELATIVE_PATH
+    );
+
+    test('vscode-remote (dev-container) URI fsPath is the in-container POSIX path', () => {
+        assert.strictEqual(devContainerWorkspaceUri.scheme, 'vscode-remote');
+        assert.strictEqual(devContainerWorkspaceUri.fsPath, '/workspaces/task_pilot',
+            'fsPath must drop the remote authority and keep the container path');
+        assert.strictEqual(workspaceDefaultPath, '/workspaces/task_pilot/.vscode/task-menu.yaml',
+            'workspace default must resolve under the container workspace root');
+    });
+
+    test('vscode-remote (ssh-remote) URI fsPath behaves the same', () => {
+        const sshUri = vscode.Uri.from({
+            scheme: 'vscode-remote',
+            authority: 'ssh-remote+devbox',
+            path: '/home/u/project'
+        });
+        assert.strictEqual(sshUri.fsPath, '/home/u/project');
+    });
+
+    test('unreachable User-level absolute configPath in a dev container falls back to the workspace default', () => {
+        // getConfigPath() と同じ規則: 絶対設定値はそのまま configured path になる
+        assert.ok(path.isAbsolute(macUserAbsolute));
+
+        const candidate = selectConfigLoadCandidate({
+            configuredPath: macUserAbsolute,
+            configuredIsAbsoluteSetting: true,
+            configuredReadable: false,           // container からは User dir が見えない
+            workspaceDefaultPath,
+            workspaceDefaultReadable: true
+        });
+
+        assert.strictEqual(candidate.path, workspaceDefaultPath);
+        assert.strictEqual(candidate.source, 'workspace-default-fallback');
+        assert.ok(candidate.fallbackReason?.includes(macUserAbsolute),
+            `fallbackReason must name the unreachable configured path, got: ${candidate.fallbackReason}`);
+    });
+
+    test('unreachable User-level absolute configPath without workspace default stays missing in a dev container', () => {
+        const candidate = selectConfigLoadCandidate({
+            configuredPath: macUserAbsolute,
+            configuredIsAbsoluteSetting: true,
+            configuredReadable: false,
+            workspaceDefaultPath,
+            workspaceDefaultReadable: false
+        });
+
+        assert.strictEqual(candidate.path, macUserAbsolute);
+        assert.strictEqual(candidate.source, 'configured');
+        assert.strictEqual(candidate.fallbackReason, undefined);
+    });
+
+    test('readable container-local custom absolute configPath stays preferred in a dev container', () => {
+        const containerCustom = '/workspaces/task_pilot/config/custom-tasks.yaml';
+        const candidate = selectConfigLoadCandidate({
+            configuredPath: containerCustom,
+            configuredIsAbsoluteSetting: true,
+            configuredReadable: true,
+            workspaceDefaultPath,
+            workspaceDefaultReadable: true
+        });
+
+        assert.strictEqual(candidate.path, containerCustom);
+        assert.strictEqual(candidate.source, 'configured');
+        assert.strictEqual(candidate.fallbackReason, undefined);
+    });
+
+    test('relative configPath resolves against the remote workspace fsPath and never falls back', () => {
+        const relativeSetting = 'config/my-tasks.yaml';
+        // getConfigPath() と同じ規則: 相対設定は workspace fsPath に join される
+        assert.ok(!path.isAbsolute(relativeSetting));
+        const configuredPath = path.join(devContainerWorkspaceUri.fsPath, relativeSetting);
+        assert.strictEqual(configuredPath, '/workspaces/task_pilot/config/my-tasks.yaml');
+
+        const candidate = selectConfigLoadCandidate({
+            configuredPath,
+            configuredIsAbsoluteSetting: false,
+            configuredReadable: false,
+            workspaceDefaultPath,
+            workspaceDefaultReadable: true
+        });
+
+        assert.strictEqual(candidate.path, configuredPath,
+            'relative configPath must keep pointing at the workspace-relative file');
+        assert.strictEqual(candidate.source, 'configured');
+        assert.strictEqual(candidate.fallbackReason, undefined);
     });
 });
