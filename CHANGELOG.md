@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.11] - 2026-06-10
+
+### Fixed
+- The sidebar reload button (`taskPilot.refreshSidebar`) now actually reloads `task-menu.yaml` instead of only re-rendering the sidebar from the previously loaded configuration. Edits are reflected immediately on button press, without waiting for the file watcher to fire (which is noticeably delayed in Dev Container / remote windows). (#11461)
+
 ## [0.6.10] - 2026-06-10
 
 ### Fixed
