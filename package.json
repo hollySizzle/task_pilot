@@ -33,6 +33,9 @@
   ],
   "l10n": "./l10n",
   "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "contributes": {
     "viewsContainers": {
       "activitybar": [
