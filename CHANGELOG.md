@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.9] - 2026-06-10
+
+### Changed
+- `TaskPilot: Export Workspace Menu to User task-menu.yaml` (`taskPilot.exportGlobalMenu`) now writes the exported workspace menu to a User-level `task-menu.yaml` in the VS Code User directory and sets `taskPilot.configPath` to that file's absolute path in User settings, so sharing a menu across workspaces no longer requires hand-editing VS Code User settings. The success notification opens the `taskPilot.configPath` setting; the legacy `taskPilot.globalMenu` setting is offered only when an existing same-label entry would overlap. The `globalMenu` JSON is still copied to the clipboard for migration, and top-level items containing `ref` remain skipped with a notification. (#11409)
+
+### Internal
+- Synced the redmine-governed agent scaffold to preset `2026.06.02.1` (developer governance tooling only; no user-facing behavior change). (#10766)
+
 ## [0.6.8] - 2026-05-31
 
 ### Fixed
