@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.10] - 2026-06-10
+
 ### Fixed
 - Fixed an unreachable absolute `taskPilot.configPath` (e.g. the User-level path written by `taskPilot.exportGlobalMenu` in v0.6.9) hiding the workspace-local `.vscode/task-menu.yaml` in Dev Container / remote workspaces: when the configured absolute path is not readable from the current workspace and `.vscode/task-menu.yaml` exists, TaskPilot now falls back to the workspace default. A readable custom absolute `configPath` remains preferred as before, relative `configPath` behavior is unchanged, and when no fallback exists the missing configured path is reported as before. Config-change events now carry the effective path and the fallback reason for diagnostics. (#11436, #11437)
 
