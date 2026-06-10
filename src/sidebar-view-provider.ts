@@ -89,6 +89,9 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
                 case 'openGlobalSettings':
                     await vscode.commands.executeCommand('taskPilot.openGlobalSettings');
                     break;
+                case 'openConfigFile':
+                    await this._openConfigSource();
+                    break;
             }
         });
 
@@ -234,6 +237,68 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 
 
     /**
+     * 読込元 config を開く (#11465)。fallback 中は実際に読んだファイルを開く。
+     */
+    private async _openConfigSource(): Promise<void> {
+        const configPath = this._configManager.getEffectiveConfigPath() ?? this._configManager.getConfigPath();
+        if (!configPath) {
+            return;
+        }
+        try {
+            const doc = await vscode.workspace.openTextDocument(configPath);
+            await vscode.window.showTextDocument(doc);
+        } catch {
+            vscode.window.showWarningMessage(
+                `TaskPilot: ${vscode.l10n.t('Cannot open config file: {0}', configPath)}`
+            );
+        }
+    }
+
+    /**
+     * 読込元 config の footer HTML を生成 (#11465)。
+     *
+     * 「menu が出ない / 反映されない」をユーザーが自己診断できるよう、
+     * いま実際に読んでいるファイルと fallback / 未ロード状態を常時表示する。
+     */
+    private _getConfigSourceHtml(): string {
+        const effectivePath = this._configManager.getEffectiveConfigPath();
+        const configuredPath = this._configManager.getConfigPath();
+        const fallbackReason = this._configManager.getFallbackReason();
+        const loaded = this._configManager.getWorkspaceConfig() !== null;
+
+        if (!effectivePath && !configuredPath) {
+            const label = vscode.l10n.t('No workspace folder open');
+            return `<div class="config-source disabled" title="${this._escapeHtml(label)}">
+                <i class="codicon codicon-info"></i>
+                <span class="config-source-path">${this._escapeHtml(label)}</span>
+            </div>`;
+        }
+
+        const sourcePath = effectivePath ?? configuredPath!;
+        const displayPath = vscode.workspace.asRelativePath(sourcePath);
+        const openHint = vscode.l10n.t('Click to open');
+
+        let icon = 'codicon-file-code';
+        let stateClass = '';
+        let tooltip = `${sourcePath}\n${openHint}`;
+
+        if (!loaded) {
+            icon = 'codicon-warning';
+            stateClass = ' missing';
+            tooltip = `${vscode.l10n.t('Config not loaded (missing or invalid): {0}', sourcePath)}\n${openHint}`;
+        } else if (fallbackReason) {
+            icon = 'codicon-arrow-swap';
+            stateClass = ' fallback';
+            tooltip = `${vscode.l10n.t('Fallback active: {0}', fallbackReason)}\n${openHint}`;
+        }
+
+        return `<div class="config-source${stateClass}" onclick="openConfigFile()" title="${this._escapeHtml(tooltip)}">
+            <i class="codicon ${icon}"></i>
+            <span class="config-source-path">${this._escapeHtml(displayPath)}</span>
+        </div>`;
+    }
+
+    /**
      * WebviewのHTMLを生成
      */
     private _getHtmlForWebview(webview: vscode.Webview): string {
@@ -259,8 +324,13 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     <div class="menu-container">
         ${menuHtml}
     </div>
+    ${this._getConfigSourceHtml()}
     <script>
         const vscode = acquireVsCodeApi();
+
+        function openConfigFile() {
+            vscode.postMessage({ type: 'openConfigFile' });
+        }
 
         function toggle(path) {
             vscode.postMessage({ type: 'toggle', path: path });

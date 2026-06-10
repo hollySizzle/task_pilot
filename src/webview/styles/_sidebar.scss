@@ -32,3 +32,54 @@
     cursor: pointer;
   }
 }
+
+// 読込元 config の常時表示 footer (#11465)
+.config-source {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--tp-space-xs);
+  padding: var(--tp-space-xs) var(--tp-space-sm);
+  font-size: var(--tp-font-sm);
+  color: var(--tp-fg-description);
+  background: var(--tp-bg);
+  border-top: 1px solid var(--tp-border);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+
+  .codicon {
+    font-size: var(--tp-font-sm);
+    flex: none;
+  }
+
+  .config-source-path {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &:hover:not(.disabled) {
+    background: var(--tp-hover-bg);
+    color: var(--tp-fg);
+  }
+
+  &.disabled {
+    cursor: default;
+  }
+
+  &.fallback .codicon {
+    color: var(--vscode-notificationsInfoIcon-foreground, var(--tp-fg));
+  }
+
+  &.missing .codicon {
+    color: var(--vscode-notificationsWarningIcon-foreground, var(--tp-fg));
+  }
+}
+
+// footer と menu の重なり防止
+body {
+  padding-bottom: calc(var(--tp-item-height) + var(--tp-space-sm));
+}

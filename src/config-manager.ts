@@ -263,6 +263,14 @@ export class ConfigManager implements vscode.Disposable {
     }
 
     /**
+     * 直近の reload が workspace-default fallback だった場合、その理由を返す (#11465)。
+     * fallback していない・未 reload の場合は undefined。sidebar の読込元表示に使う。
+     */
+    getFallbackReason(): string | undefined {
+        return this.currentCandidate?.fallbackReason;
+    }
+
+    /**
      * 現在ロード中の config を保存すべき path を返す (#11437 review #54793)。
      *
      * fallback で workspace default を読んでいる間に Config Editor が

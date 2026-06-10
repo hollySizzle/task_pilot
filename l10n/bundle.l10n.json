@@ -34,5 +34,9 @@
   "Standard": "Standard",
   "Standard description": "~50 lines - includes ref/children",
   "Advanced": "Advanced",
-  "Advanced description": "Full features demo - parallel/actions"
+  "Advanced description": "Full features demo - parallel/actions",
+  "Click to open": "Click to open",
+  "Cannot open config file: {0}": "Cannot open config file: {0}",
+  "Config not loaded (missing or invalid): {0}": "Config not loaded (missing or invalid): {0}",
+  "Fallback active: {0}": "Fallback active: {0}"
 }

@@ -34,5 +34,9 @@
   "Standard": "標準構成（Standard）",
   "Standard description": "50行程度 - ref/children含む",
   "Advanced": "フル機能（Advanced）",
-  "Advanced description": "parallel/actions含む全機能デモ"
+  "Advanced description": "parallel/actions含む全機能デモ",
+  "Click to open": "クリックで開く",
+  "Cannot open config file: {0}": "設定ファイルを開けません: {0}",
+  "Config not loaded (missing or invalid): {0}": "設定が読み込まれていません (ファイルなし or 不正): {0}",
+  "Fallback active: {0}": "fallback 中: {0}"
 }

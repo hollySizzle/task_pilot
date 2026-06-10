@@ -160,4 +160,69 @@ suite('SidebarViewProvider Test Suite', () => {
             'Should handle empty menu'
         );
     });
+
+    suite('config source footer (#11465)', () => {
+
+        async function buildFooterHtml(managerOverrides: Record<string, unknown>): Promise<string> {
+            const { SidebarViewProvider } = await import('../../sidebar-view-provider');
+            const manager = {
+                ...mockConfigManager,
+                getEffectiveConfigPath: () => null,
+                getConfigPath: () => null,
+                getFallbackReason: () => undefined,
+                getWorkspaceConfig: () => null,
+                ...managerOverrides
+            };
+            const provider = new SidebarViewProvider(
+                mockContext.extensionUri,
+                manager,
+                mockActionExecutor
+            );
+            return (provider as unknown as { _getConfigSourceHtml(): string })._getConfigSourceHtml();
+        }
+
+        test('shows the effective path and opens it on click when loaded normally', async () => {
+            const html = await buildFooterHtml({
+                getEffectiveConfigPath: () => '/ws/.vscode/task-menu.yaml',
+                getConfigPath: () => '/ws/.vscode/task-menu.yaml',
+                getWorkspaceConfig: () => ({ version: '1.0', menu: [] })
+            });
+
+            assert.ok(html.includes('config-source'), 'footer element should render');
+            assert.ok(html.includes('task-menu.yaml'), 'footer should show the config file');
+            assert.ok(html.includes('openConfigFile()'), 'footer should be clickable');
+            assert.ok(!html.includes('fallback'), 'no fallback marker without fallbackReason');
+        });
+
+        test('marks fallback state and carries the reason into the tooltip', async () => {
+            const reason = 'configured absolute taskPilot.configPath is not readable from this workspace: /Users/u/task-menu.yaml';
+            const html = await buildFooterHtml({
+                getEffectiveConfigPath: () => '/ws/.vscode/task-menu.yaml',
+                getConfigPath: () => '/Users/u/task-menu.yaml',
+                getFallbackReason: () => reason,
+                getWorkspaceConfig: () => ({ version: '1.0', menu: [] })
+            });
+
+            assert.ok(html.includes('fallback'), 'fallback state class should be present');
+            assert.ok(html.includes('/Users/u/task-menu.yaml'), 'tooltip should name the unreachable configured path');
+        });
+
+        test('marks missing state when the config could not be loaded', async () => {
+            const html = await buildFooterHtml({
+                getEffectiveConfigPath: () => '/ws/.vscode/task-menu.yaml',
+                getConfigPath: () => '/ws/.vscode/task-menu.yaml',
+                getWorkspaceConfig: () => null
+            });
+
+            assert.ok(html.includes('missing'), 'missing state class should be present');
+            assert.ok(html.includes('openConfigFile()'), 'missing state remains clickable');
+        });
+
+        test('shows a non-clickable notice without a workspace folder', async () => {
+            const html = await buildFooterHtml({});
+
+            assert.ok(html.includes('disabled'), 'no-workspace state should be disabled');
+            assert.ok(!html.includes('openConfigFile()'), 'no click handler without a path');
+        });
+    });
 });
