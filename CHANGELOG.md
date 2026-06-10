@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-06-10
+
 ### Changed
 - The User-level `task-menu.yaml` written by `TaskPilot: Export Workspace Menu to User task-menu.yaml` is now loaded as a **merged user-level menu layer** (priority: workspace menu > user-level file > `taskPilot.globalMenu`) instead of replacing the workspace menu via `taskPilot.configPath`. Exporting no longer touches `taskPilot.configPath` (a stale value pointing at the export location is cleaned up on the next export), so project-local `.vscode/task-menu.yaml` files are never hidden by an export. The export now asks before overwriting an existing User-level file. (#11467)
 
