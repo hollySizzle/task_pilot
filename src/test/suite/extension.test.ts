@@ -160,6 +160,11 @@ suite('Extension Integration Test Suite', () => {
             );
         } finally {
             await vscode.env.clipboard.writeText(before);
+            // export は User settings に configPath を永続化する。次 run の
+            // default 値テストを汚染しないよう必ず戻す (#11459 [事実] C)。
+            await vscode.workspace
+                .getConfiguration('taskPilot')
+                .update('configPath', undefined, vscode.ConfigurationTarget.Global);
         }
     });
 });

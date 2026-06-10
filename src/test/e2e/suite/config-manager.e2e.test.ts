@@ -17,7 +17,7 @@ suite('ConfigManager E2E Test Suite', () => {
 
     suiteSetup(async () => {
         // 拡張機能をアクティベート
-        const extension = vscode.extensions.getExtension('hollySizzle.task-pilot');
+        const extension = vscode.extensions.getExtension('hollySizzle.taskpilot');
         if (extension && !extension.isActive) {
             await extension.activate();
         }

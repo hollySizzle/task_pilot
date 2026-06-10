@@ -228,19 +228,22 @@ export function activate(context: vscode.ExtensionContext): void {
             ? [OPEN_CONFIG_PATH, OPEN_GLOBAL_MENU]
             : [OPEN_CONFIG_PATH];
 
-        const action = await vscode.window.showInformationMessage(
+        // 通知の action 選択を command の完了条件にしない (#11459)。await すると
+        // 通知が閉じられるまで command promise が解決せず、呼び出し側 (テスト・
+        // 他 command からの実行) が hang する。
+        void vscode.window.showInformationMessage(
             `TaskPilot: Wrote ${userYamlPath} and set taskPilot.configPath (User settings).${skippedMessage}${overlapMessage}`,
             ...actions
-        );
-
-        if (action === OPEN_CONFIG_PATH) {
-            await vscode.commands.executeCommand(
-                'workbench.action.openSettings',
-                '@ext:hollySizzle.taskpilot taskPilot.configPath'
-            );
-        } else if (action === OPEN_GLOBAL_MENU) {
-            await vscode.commands.executeCommand('taskPilot.openGlobalSettings');
-        }
+        ).then(action => {
+            if (action === OPEN_CONFIG_PATH) {
+                void vscode.commands.executeCommand(
+                    'workbench.action.openSettings',
+                    '@ext:hollySizzle.taskpilot taskPilot.configPath'
+                );
+            } else if (action === OPEN_GLOBAL_MENU) {
+                void vscode.commands.executeCommand('taskPilot.openGlobalSettings');
+            }
+        });
     });
 
     context.subscriptions.push(exportGlobalMenuCommand);

@@ -6,7 +6,6 @@
 import * as path from 'path';
 import {
     downloadAndUnzipVSCode,
-    resolveCliPathFromVSCodeExecutablePath,
     runTests
 } from '@vscode/test-electron';
 
@@ -21,12 +20,13 @@ async function main() {
         // テスト用ワークスペースのパス
         const testWorkspacePath = path.resolve(__dirname, '../../../test-workspace');
 
-        const vscodeExecutablePath = await downloadAndUnzipVSCode();
-        const vscodeCliPath = resolveCliPathFromVSCodeExecutablePath(vscodeExecutablePath);
+        // CLI script ではなく electron 実行ファイルを渡す (#11459、unit 側と同じ)。
+        // version pin の理由は src/test/runTest.ts を参照。
+        const vscodeExecutablePath = await downloadAndUnzipVSCode('1.123.2');
 
         // VS Codeをダウンロードし、E2Eテストを実行
         await runTests({
-            vscodeExecutablePath: vscodeCliPath,
+            vscodeExecutablePath,
             extensionDevelopmentPath,
             extensionTestsPath,
             launchArgs: [

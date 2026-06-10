@@ -9,19 +9,19 @@ import * as vscode from 'vscode';
 suite('Extension E2E Test Suite', () => {
     suiteSetup(async () => {
         // 拡張機能がアクティベートされるまで待機
-        const extension = vscode.extensions.getExtension('hollySizzle.task-pilot');
+        const extension = vscode.extensions.getExtension('hollySizzle.taskpilot');
         if (extension && !extension.isActive) {
             await extension.activate();
         }
     });
 
     test('Extension should be present', () => {
-        const extension = vscode.extensions.getExtension('hollySizzle.task-pilot');
+        const extension = vscode.extensions.getExtension('hollySizzle.taskpilot');
         assert.ok(extension, 'Extension should be installed');
     });
 
     test('Extension should activate', async () => {
-        const extension = vscode.extensions.getExtension('hollySizzle.task-pilot');
+        const extension = vscode.extensions.getExtension('hollySizzle.taskpilot');
         assert.ok(extension, 'Extension should be installed');
 
         if (!extension.isActive) {

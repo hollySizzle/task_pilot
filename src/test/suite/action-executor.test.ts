@@ -14,6 +14,10 @@ suite('ActionExecutor Test Suite', () => {
 
     teardown(() => {
         executor.dispose();
+        // executor.dispose() は生成済み terminal を破棄しない。放置すると
+        // pty が suite 全体で積み上がり、extension host が途中で落ちて
+        // テスト結果が失われることがある (#11459)。毎テスト後に始末する。
+        vscode.window.terminals.forEach(t => t.dispose());
     });
 
     suite('Terminal Actions', () => {
@@ -346,19 +350,30 @@ suite('ActionExecutor Test Suite', () => {
             }
         });
 
-        test('should attempt to execute remote-containers.openFolder command', async () => {
-            const action: ResolvedAction = {
-                type: 'openInDevContainer',
-                path: '/tmp/test-project'
-            };
+        test('should execute remote-containers.openFolder with the folder URI', async () => {
+            // 実 window で openFolder を実行すると test host が recycle されて
+            // suite が途中で死ぬ (#11459)。記録 runner を注入し、組み立てた
+            // command と URI を検証する。
+            const calls: { command: string; args: unknown[] }[] = [];
+            const recording = new ActionExecutor((command, ...args) => {
+                calls.push({ command, args });
+                return Promise.resolve();
+            });
 
             try {
-                await executor.execute(action);
-                // Command may fail if DevContainer extension not installed, which is expected
-            } catch (error) {
-                // Expected - DevContainer extension may not be available
-                assert.ok(error instanceof Error);
+                await recording.execute({
+                    type: 'openInDevContainer',
+                    path: '/tmp/test-project'
+                });
+            } finally {
+                recording.dispose();
             }
+
+            assert.strictEqual(calls.length, 1, 'Should invoke exactly one window command');
+            assert.strictEqual(calls[0].command, 'remote-containers.openFolder');
+            const uri = calls[0].args[0] as vscode.Uri;
+            assert.strictEqual(uri.scheme, 'file');
+            assert.strictEqual(uri.fsPath, '/tmp/test-project');
         });
     });
 
@@ -395,20 +410,29 @@ suite('ActionExecutor Test Suite', () => {
             }
         });
 
-        test('should attempt to execute vscode.openFolder with remote URI', async () => {
-            const action: ResolvedAction = {
-                type: 'openRemoteSSH',
-                path: '/home/user/project',
-                host: 'test-server'
-            };
+        test('should execute vscode.openFolder with the ssh-remote URI', async () => {
+            const calls: { command: string; args: unknown[] }[] = [];
+            const recording = new ActionExecutor((command, ...args) => {
+                calls.push({ command, args });
+                return Promise.resolve();
+            });
 
             try {
-                await executor.execute(action);
-                // Command may fail if SSH host not configured, which is expected
-            } catch (error) {
-                // Expected - SSH host may not be available
-                assert.ok(error instanceof Error);
+                await recording.execute({
+                    type: 'openRemoteSSH',
+                    path: '/home/user/project',
+                    host: 'test-server'
+                });
+            } finally {
+                recording.dispose();
             }
+
+            assert.strictEqual(calls.length, 1, 'Should invoke exactly one window command');
+            assert.strictEqual(calls[0].command, 'vscode.openFolder');
+            const uri = calls[0].args[0] as vscode.Uri;
+            assert.strictEqual(uri.scheme, 'vscode-remote');
+            assert.strictEqual(uri.authority, 'ssh-remote+test-server');
+            assert.strictEqual(uri.path, '/home/user/project');
         });
     });
 
@@ -445,20 +469,29 @@ suite('ActionExecutor Test Suite', () => {
             }
         });
 
-        test('should attempt to execute vscode.openFolder with tunnel URI', async () => {
-            const action: ResolvedAction = {
-                type: 'openRemoteTunnel',
-                path: '/home/user/project',
-                tunnelName: 'test-tunnel'
-            };
+        test('should execute vscode.openFolder with the tunnel URI', async () => {
+            const calls: { command: string; args: unknown[] }[] = [];
+            const recording = new ActionExecutor((command, ...args) => {
+                calls.push({ command, args });
+                return Promise.resolve();
+            });
 
             try {
-                await executor.execute(action);
-                // Command may fail if tunnel not available, which is expected
-            } catch (error) {
-                // Expected - tunnel may not be available
-                assert.ok(error instanceof Error);
+                await recording.execute({
+                    type: 'openRemoteTunnel',
+                    path: '/home/user/project',
+                    tunnelName: 'test-tunnel'
+                });
+            } finally {
+                recording.dispose();
             }
+
+            assert.strictEqual(calls.length, 1, 'Should invoke exactly one window command');
+            assert.strictEqual(calls[0].command, 'vscode.openFolder');
+            const uri = calls[0].args[0] as vscode.Uri;
+            assert.strictEqual(uri.scheme, 'vscode-remote');
+            assert.strictEqual(uri.authority, 'tunnel+test-tunnel');
+            assert.strictEqual(uri.path, '/home/user/project');
         });
     });
 

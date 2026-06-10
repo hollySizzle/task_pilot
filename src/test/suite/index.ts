@@ -21,12 +21,21 @@ export async function run(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
         try {
             // テストを実行
-            mocha.run((failures: number) => {
+            const runner = mocha.run((failures: number) => {
+                // exit code が host shutdown 事情で汚染された場合に、テスト自体の
+                // 結果を log から判別できるようにする (#11459)
+                console.error(`[SUITE DONE] failures=${failures}`);
                 if (failures > 0) {
                     reject(new Error(`${failures} tests failed.`));
                 } else {
                     resolve();
                 }
+            });
+            // mocha の epilogue (失敗詳細) は extension host 終了時の stdout
+            // 切断で失われることがあるため、失敗発生時に即時 flush する (#11459)
+            runner.on('fail', (test: Mocha.Runnable, err: Error) => {
+                console.error(`[TEST FAIL] ${test.fullTitle()}`);
+                console.error(`[TEST FAIL] ${err && (err.stack || err.message)}`);
             });
         } catch (runErr) {
             console.error(runErr);

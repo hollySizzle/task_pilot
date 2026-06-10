@@ -11,6 +11,12 @@ import { exec } from 'child_process';
 import { ResolvedAction, MultipleActionOptions, MultipleActionResult, ActionError, ActionGroup } from './types';
 
 /**
+ * window を跨ぐ command の実行関数型 (#11459)。
+ * default は `vscode.commands.executeCommand`。
+ */
+export type WindowCommandRunner = (command: string, ...args: unknown[]) => Thenable<unknown>;
+
+/**
  * ActionExecutor - アクション実行クラス
  */
 export class ActionExecutor implements vscode.Disposable {
@@ -38,7 +44,17 @@ export class ActionExecutor implements vscode.Disposable {
     /** shellCommand の stdout/stderr 出力先 */
     private outputChannel: vscode.OutputChannel;
 
-    constructor() {
+    /**
+     * window を跨ぐ command (vscode.openFolder / remote-containers.openFolder) の
+     * 実行関数。テストが実行を差し替えられる seam (#11459)。実 window で bogus な
+     * remote URI を開くと test host が recycle され suite が途中で死ぬため、
+     * テストでは記録用 runner を注入する。
+     */
+    private readonly windowCommandRunner: WindowCommandRunner;
+
+    constructor(windowCommandRunner?: WindowCommandRunner) {
+        this.windowCommandRunner = windowCommandRunner
+            ?? ((command, ...args) => vscode.commands.executeCommand(command, ...args));
         this.outputChannel = vscode.window.createOutputChannel('TaskPilot');
 
         // ターミナルが閉じられたらマップから削除
@@ -269,7 +285,7 @@ export class ActionExecutor implements vscode.Disposable {
 
         try {
             const folderUri = vscode.Uri.file(action.path);
-            await vscode.commands.executeCommand('remote-containers.openFolder', folderUri);
+            await this.windowCommandRunner('remote-containers.openFolder', folderUri);
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             throw new Error(`Failed to open folder in DevContainer: ${message}`);
@@ -290,7 +306,7 @@ export class ActionExecutor implements vscode.Disposable {
         try {
             // vscode-remote://ssh-remote+{host}{path} 形式のURIを作成
             const remoteUri = vscode.Uri.parse(`vscode-remote://ssh-remote+${action.host}${action.path}`);
-            await vscode.commands.executeCommand('vscode.openFolder', remoteUri);
+            await this.windowCommandRunner('vscode.openFolder', remoteUri);
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             throw new Error(`Failed to open folder via SSH: ${message}`);
@@ -311,7 +327,7 @@ export class ActionExecutor implements vscode.Disposable {
         try {
             // vscode-remote://tunnel+{tunnelName}{path} 形式のURIを作成
             const remoteUri = vscode.Uri.parse(`vscode-remote://tunnel+${action.tunnelName}${action.path}`);
-            await vscode.commands.executeCommand('vscode.openFolder', remoteUri);
+            await this.windowCommandRunner('vscode.openFolder', remoteUri);
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             throw new Error(`Failed to open folder via Remote Tunnel: ${message}`);
