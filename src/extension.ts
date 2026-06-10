@@ -110,8 +110,13 @@ export function activate(context: vscode.ExtensionContext): void {
     context.subscriptions.push(reloadCommand);
 
     // Register refreshSidebar command
-    const refreshSidebarCommand = vscode.commands.registerCommand('taskPilot.refreshSidebar', () => {
-        if (sidebarProvider) {
+    // リロードボタンは設定ファイルの再読込を起点にする (#11461)。webview の再描画は
+    // ConfigManager.onConfigChanged 購読 (sidebar-view-provider) 経由で行われるため、
+    // ここで直接 refresh() は呼ばない。watcher の遅延発火を待たずに即時反映される。
+    const refreshSidebarCommand = vscode.commands.registerCommand('taskPilot.refreshSidebar', async () => {
+        if (configManager) {
+            await configManager.reloadConfig();
+        } else if (sidebarProvider) {
             sidebarProvider.refresh();
         }
     });

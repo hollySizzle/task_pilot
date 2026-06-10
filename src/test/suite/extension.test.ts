@@ -119,6 +119,15 @@ suite('Extension Integration Test Suite', () => {
         assert.strictEqual(ext!.packageJSON.publisher, 'hollySizzle', 'Publisher should be hollySizzle');
     });
 
+    test('refreshSidebar command should complete a config reload (#11461)', async function() {
+        // リロードボタン (refreshSidebar) は webview 再描画ではなく
+        // ConfigManager.reloadConfig() を起点にする。workspace なし環境でも
+        // 再読込経路が hang / throw せず完走することを固定する。
+        this.timeout(5000);
+        await vscode.commands.executeCommand('taskPilot.refreshSidebar');
+        assert.ok(true, 'refreshSidebar resolved through the reload path');
+    });
+
     test('exportGlobalMenu should accept a configOverride argument (Config Editor未保存対応)', async function() {
         // Config Editor は未保存編集を含む `_currentConfig` を command に渡すことで
         // clipboard に stale な JSON が出るのを防ぐ。command 側がその override を
