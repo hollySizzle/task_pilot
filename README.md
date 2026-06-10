@@ -71,7 +71,15 @@ menu:
 | `taskPilot.configPath` | Path to YAML config file | `.vscode/task-menu.yaml` |
 | `taskPilot.globalMenu` | Global menu items merged after workspace menu | `[]` |
 
-An absolute `taskPilot.configPath` (e.g. the User-level `task-menu.yaml` written by `TaskPilot: Export Workspace Menu to User task-menu.yaml`) is used as-is when readable. If it is **not readable from the current workspace** — typical in Dev Container / remote workspaces where the local User directory does not exist — and the workspace has a `.vscode/task-menu.yaml`, TaskPilot falls back to that workspace default instead of showing no menu. A readable custom absolute path always stays preferred, and relative paths are resolved against the workspace root as before.
+An absolute `taskPilot.configPath` is used as-is when readable. If it is **not readable from the current workspace** — typical in Dev Container / remote workspaces where the local path does not exist — and the workspace has a `.vscode/task-menu.yaml`, TaskPilot falls back to that workspace default instead of showing no menu. A readable custom absolute path always stays preferred, and relative paths are resolved against the workspace root as before.
+
+Menus are layered with workspace priority:
+
+1. Workspace menu (`taskPilot.configPath`, default `.vscode/task-menu.yaml`)
+2. User-level `task-menu.yaml` in the VS Code User directory (written by the export command)
+3. `taskPilot.globalMenu` in user settings (legacy)
+
+Items with the same `label` are taken from the higher-priority layer; colliding categories merge their children recursively with the same priority. The sidebar footer always shows which config file the workspace menu was loaded from.
 
 ### Global Menu
 
@@ -113,18 +121,17 @@ Example:
 ]
 ```
 
-### Export Workspace Menu to Global Menu
+### Export Workspace Menu to the User-level Menu
 
-Use `TaskPilot: Export Workspace Menu to Global Menu JSON` to copy exportable top-level items from `.vscode/task-menu.yaml` to your clipboard as a JSON array.
+Use `TaskPilot: Export Workspace Menu to User task-menu.yaml` to share the current workspace menu across all workspaces.
 
-- The command exports from the saved workspace YAML, not from merged global/workspace state
-- When invoked from the Config Editor's "Export Global Menu" button, the export uses the editor's current (possibly unsaved) state, so the clipboard JSON always matches what you see in the editor
-- The output is designed to be pasted directly into `taskPilot.globalMenu`
-- The command never writes to `settings.json` automatically
-- It is one-way only; there is no reverse sync
-- Top-level items whose subtree contains `ref` are skipped because `taskPilot.globalMenu` does not support `ref`
-
-If any items are skipped, TaskPilot reports the skipped count after copying the exportable JSON.
+- The command writes the exportable top-level items to a `task-menu.yaml` in the VS Code User directory (next to `settings.json`)
+- That file is loaded in every workspace as the user-level menu layer and **merged** with each workspace menu — workspace items always win on label collisions, so a project-local `.vscode/task-menu.yaml` is never hidden
+- The command does **not** change `taskPilot.configPath`; if a previous TaskPilot version set it to the export location, the stale value is cleaned up on the next export
+- If the file already exists, TaskPilot asks before overwriting it
+- When invoked from the Config Editor's "Export Global Menu" button, the export uses the editor's current (possibly unsaved) state
+- Top-level items whose subtree contains `ref` are skipped (`ref` needs the workspace `commands` section); the skipped count is reported
+- For the legacy `taskPilot.globalMenu` workflow, the exported items are still copied to the clipboard as JSON
 
 ### YAML Schema
 

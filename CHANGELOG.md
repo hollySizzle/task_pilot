@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- The User-level `task-menu.yaml` written by `TaskPilot: Export Workspace Menu to User task-menu.yaml` is now loaded as a **merged user-level menu layer** (priority: workspace menu > user-level file > `taskPilot.globalMenu`) instead of replacing the workspace menu via `taskPilot.configPath`. Exporting no longer touches `taskPilot.configPath` (a stale value pointing at the export location is cleaned up on the next export), so project-local `.vscode/task-menu.yaml` files are never hidden by an export. The export now asks before overwriting an existing User-level file. (#11467)
+
+### Added
+- The sidebar shows a persistent footer with the config file the workspace menu was actually loaded from, including fallback and load-error states; clicking it opens the file. (#11465)
+- TaskPilot now activates on startup (`onStartupFinished`), so the config is loaded and the file watcher armed before the sidebar is first opened — previously the extension stayed dormant until the view was opened, which in Dev Containers looked like the extension was not installed. (#11466)
+
+### Fixed
+- The config error notification button now says "Open Config File" to match what it does; the globalMenu error button label is localized. Pasting an exported workspace config object into `taskPilot.globalMenu` now produces one targeted diagnostic instead of a pile of per-field errors. (#11468)
+- `npm test` / `npm run test:e2e` silently passed without running any tests; the runners now launch the electron test build (pinned to VS Code 1.123.2), build the real webpack bundle before integration tests, and the remote-action tests no longer open real remote windows mid-suite. (#11459)
+
 ## [0.6.11] - 2026-06-10
 
 ### Fixed

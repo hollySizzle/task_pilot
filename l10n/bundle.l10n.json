@@ -38,6 +38,7 @@
   "Click to open": "Click to open",
   "Open Config File": "Open Config File",
   "Open Settings": "Open Settings",
+  "Open Exported File": "Open Exported File",
   "Cannot open config file: {0}": "Cannot open config file: {0}",
   "Config not loaded (missing or invalid): {0}": "Config not loaded (missing or invalid): {0}",
   "Fallback active: {0}": "Fallback active: {0}"

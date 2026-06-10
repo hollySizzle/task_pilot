@@ -1775,6 +1775,81 @@ suite('selectConfigLoadCandidate (#11436 / #11437)', () => {
 });
 
 /**
+ * User-level task-menu.yaml レイヤーの merge 意味論テスト (Redmine #11467)
+ *
+ * 優先順位: workspace menu > User-level task-menu.yaml > taskPilot.globalMenu。
+ * user file は workspace menu の置き換えではなく merge される global レイヤー。
+ */
+suite('user-level task-menu layer (#11467)', () => {
+
+    function buildManager(state: {
+        workspaceMenu?: MenuItem[];
+        userMenu?: MenuItem[];
+        globalMenu?: MenuItem[];
+    }): ConfigManager {
+        const manager = new ConfigManager();
+        const internal = manager as unknown as {
+            config: MenuConfig | null;
+            userMenu: MenuItem[];
+            globalMenu: MenuItem[];
+        };
+        internal.config = state.workspaceMenu
+            ? { version: '1.0', menu: state.workspaceMenu }
+            : null;
+        internal.userMenu = state.userMenu ?? [];
+        internal.globalMenu = state.globalMenu ?? [];
+        return manager;
+    }
+
+    const wsItem: MenuItem = { label: 'Build', type: 'terminal', command: 'ws build' };
+    const userItem: MenuItem = { label: 'Build', type: 'terminal', command: 'user build' };
+    const globalItem: MenuItem = { label: 'Build', type: 'terminal', command: 'global build' };
+
+    test('workspace menu wins over the user-level file on the same label', () => {
+        const manager = buildManager({ workspaceMenu: [wsItem], userMenu: [userItem] });
+        const config = manager.getConfig();
+        assert.strictEqual(config?.menu.length, 1);
+        assert.strictEqual(config!.menu[0].command, 'ws build');
+        manager.dispose();
+    });
+
+    test('user-level file wins over legacy globalMenu on the same label', () => {
+        const manager = buildManager({ userMenu: [userItem], globalMenu: [globalItem] });
+        const config = manager.getConfig();
+        assert.strictEqual(config?.menu.length, 1);
+        assert.strictEqual(config!.menu[0].command, 'user build');
+        manager.dispose();
+    });
+
+    test('all three layers merge with distinct labels preserved', () => {
+        const manager = buildManager({
+            workspaceMenu: [{ label: 'WS', type: 'terminal', command: 'a' }],
+            userMenu: [{ label: 'User', type: 'terminal', command: 'b' }],
+            globalMenu: [{ label: 'Global', type: 'terminal', command: 'c' }]
+        });
+        const config = manager.getConfig();
+        assert.deepStrictEqual(config?.menu.map(item => item.label), ['WS', 'User', 'Global']);
+        manager.dispose();
+    });
+
+    test('user-level file alone produces a virtual config without a workspace menu', () => {
+        const manager = buildManager({ userMenu: [userItem] });
+        const config = manager.getConfig();
+        assert.strictEqual(config?.menu.length, 1);
+        assert.strictEqual(config!.menu[0].command, 'user build');
+        manager.dispose();
+    });
+
+    test('no user file path keeps the legacy globalMenu behavior unchanged', () => {
+        const manager = buildManager({ workspaceMenu: [wsItem], globalMenu: [globalItem] });
+        const config = manager.getConfig();
+        assert.strictEqual(config?.menu.length, 1);
+        assert.strictEqual(config!.menu[0].command, 'ws build');
+        manager.dispose();
+    });
+});
+
+/**
  * Dev Container / remote workspace URI / fsPath 再現テスト (Redmine #11438)
  *
  * ConfigManager は workspace の位置を `workspaceFolder.uri.fsPath` 経由でしか

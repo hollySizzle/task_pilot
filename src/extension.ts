@@ -37,7 +37,8 @@ export function activate(context: vscode.ExtensionContext): void {
     setExtensionPath(context.extensionPath);
 
     // Initialize ConfigManager
-    configManager = new ConfigManager();
+    // User-level task-menu.yaml (export 先) を global レイヤーとして読ませる (#11467)
+    configManager = new ConfigManager(resolveUserTaskMenuPath(context.globalStorageUri.fsPath));
     context.subscriptions.push(configManager);
 
     // Initialize ActionExecutor
@@ -163,9 +164,13 @@ export function activate(context: vscode.ExtensionContext): void {
     // Register exportGlobalMenu command
     // configOverride を渡すと、保存済み workspace YAML ではなくその config を export 元にする。
     // Config Editor は未保存編集を含む `_currentConfig` を渡すことで、stale な export が
-    // 出るのを防ぐ。export は User-level `task-menu.yaml` を書き出し、`taskPilot.configPath`
-    // を実絶対パスで User 設定に固定して、共有メニューの手動設定を不要にする。
-    const exportGlobalMenuCommand = vscode.commands.registerCommand('taskPilot.exportGlobalMenu', async (configOverride?: MenuConfig) => {
+    // 出るのを防ぐ。export は User-level `task-menu.yaml` を書き出す。このファイルは
+    // ConfigManager が merge される global レイヤーとして読む (#11467) ため、
+    // `taskPilot.configPath` はもう変更しない (workspace menu を乗っ取らない)。
+    // options.force は上書き確認を skip する (テスト・自動化用)。
+    const exportGlobalMenuCommand = vscode.commands.registerCommand(
+        'taskPilot.exportGlobalMenu',
+        async (configOverride?: MenuConfig, options?: { force?: boolean }) => {
         if (!configManager) {
             vscode.window.showErrorMessage(`TaskPilot: ${vscode.l10n.t('Extension not initialized')}`);
             return;
@@ -188,21 +193,46 @@ export function activate(context: vscode.ExtensionContext): void {
             return;
         }
 
-        // User-level task-menu.yaml を生成し、configPath(Global) を実絶対パスで設定する。
         const userYamlPath = resolveUserTaskMenuPath(context.globalStorageUri.fsPath);
         const yaml = generateYaml(buildMenuConfigExport(exportResult.menu));
         const fileUri = vscode.Uri.file(userYamlPath);
 
+        // 既存ファイルの無警告上書きを防ぐ (#11467)
+        if (!options?.force) {
+            let exists = false;
+            try {
+                await vscode.workspace.fs.stat(fileUri);
+                exists = true;
+            } catch {
+                // missing — 確認不要
+            }
+            if (exists) {
+                const overwrite = vscode.l10n.t('Overwrite');
+                const answer = await vscode.window.showWarningMessage(
+                    vscode.l10n.t('{0} already exists. Overwrite?', userYamlPath),
+                    { modal: true },
+                    overwrite
+                );
+                if (answer !== overwrite) {
+                    return;
+                }
+            }
+        }
+
         try {
             await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(fileUri, '..'));
             await vscode.workspace.fs.writeFile(fileUri, Buffer.from(yaml, 'utf8'));
-            await vscode.workspace
-                .getConfiguration('taskPilot')
-                .update('configPath', userYamlPath, vscode.ConfigurationTarget.Global);
+
+            // v0.6.9 の export が User settings に書いた configPath の残骸を掃除する
+            // (#11467)。export という明示操作の一部としてのみ行い、起動時には触らない。
+            const config = vscode.workspace.getConfiguration('taskPilot');
+            if (config.inspect<string>('configPath')?.globalValue === userYamlPath) {
+                await config.update('configPath', undefined, vscode.ConfigurationTarget.Global);
+            }
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             vscode.window.showErrorMessage(
-                `TaskPilot: Failed to write User-level task-menu.yaml or update configPath (${message})`
+                `TaskPilot: Failed to write User-level task-menu.yaml (${message})`
             );
             return;
         }
@@ -218,28 +248,27 @@ export function activate(context: vscode.ExtensionContext): void {
             ? ` Existing taskPilot.globalMenu has same-label item(s) [${overlap.join(', ')}] that may duplicate/shadow this menu; remove or rename them.`
             : '';
 
-        // Default success action points at the setting we just changed
-        // (taskPilot.configPath). Offer the legacy globalMenu surface only when
-        // there is overlap to clean up, so users are not steered back to the
-        // deprecated migration workflow (Redmine #11410 review #54647).
-        const OPEN_CONFIG_PATH = 'Open Config Path Setting';
+        // Default success action opens the exported file. Offer the legacy
+        // globalMenu surface only when there is overlap to clean up, so users
+        // are not steered back to the deprecated migration workflow
+        // (Redmine #11410 review #54647).
+        const OPEN_EXPORTED_FILE = vscode.l10n.t('Open Exported File');
         const OPEN_GLOBAL_MENU = 'Open globalMenu';
         const actions = overlap.length > 0
-            ? [OPEN_CONFIG_PATH, OPEN_GLOBAL_MENU]
-            : [OPEN_CONFIG_PATH];
+            ? [OPEN_EXPORTED_FILE, OPEN_GLOBAL_MENU]
+            : [OPEN_EXPORTED_FILE];
 
         // 通知の action 選択を command の完了条件にしない (#11459)。await すると
         // 通知が閉じられるまで command promise が解決せず、呼び出し側 (テスト・
         // 他 command からの実行) が hang する。
         void vscode.window.showInformationMessage(
-            `TaskPilot: Wrote ${userYamlPath} and set taskPilot.configPath (User settings).${skippedMessage}${overlapMessage}`,
+            `TaskPilot: Wrote ${userYamlPath}. It is merged into every workspace as the user-level menu (workspace items win).${skippedMessage}${overlapMessage}`,
             ...actions
         ).then(action => {
-            if (action === OPEN_CONFIG_PATH) {
-                void vscode.commands.executeCommand(
-                    'workbench.action.openSettings',
-                    '@ext:hollySizzle.taskpilot taskPilot.configPath'
-                );
+            if (action === OPEN_EXPORTED_FILE) {
+                void vscode.workspace.openTextDocument(userYamlPath).then(doc => {
+                    void vscode.window.showTextDocument(doc);
+                });
             } else if (action === OPEN_GLOBAL_MENU) {
                 void vscode.commands.executeCommand('taskPilot.openGlobalSettings');
             }

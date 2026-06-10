@@ -147,7 +147,9 @@ suite('Extension Integration Test Suite', () => {
 
         const before = await vscode.env.clipboard.readText();
         try {
-            await vscode.commands.executeCommand('taskPilot.exportGlobalMenu', editingConfig);
+            // force: 既存ファイルがあるときの上書き確認 modal はテストでは応答
+            // できないため skip する (#11467)
+            await vscode.commands.executeCommand('taskPilot.exportGlobalMenu', editingConfig, { force: true });
             const after = await vscode.env.clipboard.readText();
 
             // 受け取った clipboard JSON に override の項目が出ていれば override 経路が使われている。
@@ -158,10 +160,17 @@ suite('Extension Integration Test Suite', () => {
                 parsed.some((item: { label?: string }) => item.label === 'Unsaved Export Probe'),
                 'export should include the override-only item, proving _currentConfig was used'
             );
+
+            // #11467: export は configPath を乗っ取らない
+            const inspected = vscode.workspace
+                .getConfiguration('taskPilot')
+                .inspect<string>('configPath');
+            assert.strictEqual(inspected?.globalValue, undefined,
+                'export must not write taskPilot.configPath into User settings');
         } finally {
             await vscode.env.clipboard.writeText(before);
-            // export は User settings に configPath を永続化する。次 run の
-            // default 値テストを汚染しないよう必ず戻す (#11459 [事実] C)。
+            // 防御的 cleanup: 仕様変更後 export は configPath を書かないが、
+            // 万一書かれた場合に次 run を汚染させない (#11459 [事実] C)。
             await vscode.workspace
                 .getConfiguration('taskPilot')
                 .update('configPath', undefined, vscode.ConfigurationTarget.Global);

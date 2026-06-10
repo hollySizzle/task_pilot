@@ -38,6 +38,7 @@
   "Click to open": "クリックで開く",
   "Open Config File": "設定ファイルを開く",
   "Open Settings": "設定を開く",
+  "Open Exported File": "export したファイルを開く",
   "Cannot open config file: {0}": "設定ファイルを開けません: {0}",
   "Config not loaded (missing or invalid): {0}": "設定が読み込まれていません (ファイルなし or 不正): {0}",
   "Fallback active: {0}": "fallback 中: {0}"
