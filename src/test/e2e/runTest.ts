@@ -4,6 +4,7 @@
  */
 
 import * as path from 'path';
+import * as fs from 'fs';
 import {
     downloadAndUnzipVSCode,
     runTests
@@ -19,6 +20,11 @@ async function main() {
 
         // テスト用ワークスペースのパス
         const testWorkspacePath = path.resolve(__dirname, '../../../test-workspace');
+
+        // workspace ディレクトリは gitignore されており CI には存在しない。
+        // 存在しない path を渡すと Linux では folder が開かれず
+        // workspaceFolders が空になり、e2e 全体が壊れる (#11548)。
+        fs.mkdirSync(testWorkspacePath, { recursive: true });
 
         // CLI script ではなく electron 実行ファイルを渡す (#11459、unit 側と同じ)。
         // version pin の理由は src/test/runTest.ts を参照。
