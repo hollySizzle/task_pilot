@@ -10,10 +10,89 @@ import { MenuConfig, MenuItem, ResolvedAction, CommandDefinition, ActionDefiniti
 
 /**
  * 設定変更イベントの型
+ *
+ * `effectivePath` / `fallbackReason` は #11437 で追加 (additive・optional)。
+ * 実際に読みに行った path と、configured path からの fallback が起きた場合の
+ * 理由を診断用に運ぶ。既存 consumer は無視してよい。
  */
 export interface ConfigChangeEvent {
     config: MenuConfig | null;
     error?: Error;
+    effectivePath?: string | null;
+    fallbackReason?: string;
+}
+
+/**
+ * workspace default の config 相対パス。`taskPilot.configPath` 未設定時の
+ * default 値であり、絶対 configPath が到達不能なときの fallback 先でもある。
+ */
+export const DEFAULT_CONFIG_RELATIVE_PATH = '.vscode/task-menu.yaml';
+
+export type ConfigCandidateSource = 'configured' | 'workspace-default-fallback';
+
+/**
+ * 実際に読み込む config ファイルの候補。
+ * `source === 'workspace-default-fallback'` のとき `fallbackReason` が
+ * configured path がなぜ使われなかったかを説明する。
+ */
+export interface ConfigLoadCandidate {
+    path: string;
+    source: ConfigCandidateSource;
+    fallbackReason?: string;
+}
+
+/**
+ * configured path の解決と「実際に読む候補」の選定を分離する (#11436 / #11437)。
+ *
+ * 背景: v0.6.9 の `exportGlobalMenu` は User 設定 `taskPilot.configPath` に
+ * User ディレクトリの絶対パスを書く。Dev Container / remote workspace では
+ * その絶対パスが container 内に存在せず、従来の「configured path だけを読む」
+ * 実装では workspace-local `.vscode/task-menu.yaml` が永久に隠れていた。
+ *
+ * 候補順:
+ * 1. configured path が readable → そのまま使う。**readable な custom 絶対
+ *    パスを fallback が上書きすることはない** (local の既存挙動を壊さない)。
+ * 2. configured が「絶対パスとして設定」かつ unreadable、workspace default
+ *    `.vscode/task-menu.yaml` が readable → workspace default へ fallback。
+ *    remote 判定 API には依存しない保守的な file-exists 判定 (#54785
+ *    Suggested Direction)。
+ * 3. それ以外 → configured を返し、従来どおり読み込み失敗として扱う
+ *    (missing 通知は configured path を指す)。
+ *
+ * 相対 `configPath` (default 含む) は `configuredIsAbsoluteSetting === false`
+ * なので fallback 対象外 — 挙動は従来と完全に同じ。
+ */
+export function selectConfigLoadCandidate(input: {
+    /** getConfigPath() が返した絶対化済み configured path */
+    configuredPath: string;
+    /** raw の `taskPilot.configPath` 設定値が絶対パスだったか */
+    configuredIsAbsoluteSetting: boolean;
+    /** configured path が file として readable か */
+    configuredReadable: boolean;
+    /** workspace default `.vscode/task-menu.yaml` の絶対パス (workspace なしなら null) */
+    workspaceDefaultPath: string | null;
+    /** workspace default が file として readable か */
+    workspaceDefaultReadable: boolean;
+}): ConfigLoadCandidate {
+    if (input.configuredReadable) {
+        return { path: input.configuredPath, source: 'configured' };
+    }
+
+    if (
+        input.configuredIsAbsoluteSetting &&
+        input.workspaceDefaultPath &&
+        input.workspaceDefaultReadable &&
+        input.workspaceDefaultPath !== input.configuredPath
+    ) {
+        return {
+            path: input.workspaceDefaultPath,
+            source: 'workspace-default-fallback',
+            fallbackReason:
+                `configured absolute taskPilot.configPath is not readable from this workspace: ${input.configuredPath}`
+        };
+    }
+
+    return { path: input.configuredPath, source: 'configured' };
 }
 
 export interface GlobalMenuExportSkip {
@@ -79,6 +158,7 @@ export class ConfigManager implements vscode.Disposable {
     private fileWatcher: vscode.FileSystemWatcher | null = null;
     private configWatcher: vscode.Disposable | null = null;
     private currentConfigPath: string | null = null;
+    private currentCandidate: ConfigLoadCandidate | null = null;
 
     private readonly _onConfigChanged = new vscode.EventEmitter<ConfigChangeEvent>();
     public readonly onConfigChanged = this._onConfigChanged.event;
@@ -150,6 +230,11 @@ export class ConfigManager implements vscode.Disposable {
 
     /**
      * 設定ファイルパスを取得
+     *
+     * これは「configured path」(設定が指す path) の解決であり、実際に読む
+     * 候補の選定 (#11437 の fallback) は `reloadConfig()` 側で行う。
+     * configured path が到達不能な場合の effective path は
+     * `getEffectiveConfigPath()` を参照。
      */
     getConfigPath(): string | null {
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -159,7 +244,7 @@ export class ConfigManager implements vscode.Disposable {
 
         const configSetting = vscode.workspace
             .getConfiguration('taskPilot')
-            .get<string>('configPath', '.vscode/task-menu.yaml');
+            .get<string>('configPath', DEFAULT_CONFIG_RELATIVE_PATH);
 
         // 絶対パスか相対パスかを判定
         if (path.isAbsolute(configSetting)) {
@@ -170,7 +255,73 @@ export class ConfigManager implements vscode.Disposable {
     }
 
     /**
+     * 直近の reload で実際に読みに行った path (fallback 込み) を返す。
+     * まだ reload していない場合は null。
+     */
+    getEffectiveConfigPath(): string | null {
+        return this.currentCandidate?.path ?? null;
+    }
+
+    /**
+     * path が file として readable かを best-effort で判定する。
+     * stat 失敗 (missing / 権限 / remote 非到達) は false。
+     */
+    private async isReadableFile(fsPath: string): Promise<boolean> {
+        try {
+            const stat = await vscode.workspace.fs.stat(vscode.Uri.file(fsPath));
+            // FileType はビットフラグ (SymbolicLink | File など) なので包含判定にする
+            return (stat.type & vscode.FileType.File) !== 0;
+        } catch {
+            return false;
+        }
+    }
+
+    /**
+     * configured path から実際に読む候補を選定する (#11436 / #11437)。
+     * 判定の本体は pure な `selectConfigLoadCandidate` (unit test 対象)。
+     */
+    private async resolveLoadCandidate(configuredPath: string): Promise<ConfigLoadCandidate> {
+        const rawSetting = vscode.workspace
+            .getConfiguration('taskPilot')
+            .get<string>('configPath', DEFAULT_CONFIG_RELATIVE_PATH);
+        const configuredIsAbsoluteSetting = path.isAbsolute(rawSetting);
+
+        const configuredReadable = await this.isReadableFile(configuredPath);
+
+        // readable なら fallback 判定は不要 — workspace default の stat を省く
+        if (configuredReadable || !configuredIsAbsoluteSetting) {
+            return selectConfigLoadCandidate({
+                configuredPath,
+                configuredIsAbsoluteSetting,
+                configuredReadable,
+                workspaceDefaultPath: null,
+                workspaceDefaultReadable: false
+            });
+        }
+
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        const workspaceDefaultPath = workspaceFolder
+            ? path.join(workspaceFolder.uri.fsPath, DEFAULT_CONFIG_RELATIVE_PATH)
+            : null;
+        const workspaceDefaultReadable = workspaceDefaultPath
+            ? await this.isReadableFile(workspaceDefaultPath)
+            : false;
+
+        return selectConfigLoadCandidate({
+            configuredPath,
+            configuredIsAbsoluteSetting,
+            configuredReadable,
+            workspaceDefaultPath,
+            workspaceDefaultReadable
+        });
+    }
+
+    /**
      * 設定ファイルを再読み込み
+     *
+     * configured path (getConfigPath) と実際に読む候補の選定を分離する
+     * (#11436 / #11437)。到達不能な絶対 configPath が workspace default を
+     * 隠さないよう、候補選定が fallback を解決してから読みに行く。
      */
     async reloadConfig(): Promise<void> {
         const configPath = this.getConfigPath();
@@ -183,17 +334,17 @@ export class ConfigManager implements vscode.Disposable {
             globalMenuError = error instanceof Error ? error : new Error(String(error));
         }
 
-        // パスが変更された場合、ファイルウォッチャーを更新
-        if (configPath !== this.currentConfigPath) {
-            this.setupFileWatcher(configPath);
-            this.currentConfigPath = configPath;
-        }
-
         if (!configPath) {
+            this.currentCandidate = null;
+            if (this.currentConfigPath !== null) {
+                this.setupFileWatcher(null);
+                this.currentConfigPath = null;
+            }
             this.config = null;
             this._onConfigChanged.fire({
                 config: null,
-                error: globalMenuError || new Error('No workspace folder open')
+                error: globalMenuError || new Error('No workspace folder open'),
+                effectivePath: null
             });
             if (globalMenuError) {
                 this.showGlobalMenuErrorNotification(globalMenuError);
@@ -201,15 +352,31 @@ export class ConfigManager implements vscode.Disposable {
             return;
         }
 
+        const candidate = await this.resolveLoadCandidate(configPath);
+        this.currentCandidate = candidate;
+        if (candidate.fallbackReason) {
+            console.info(
+                `TaskPilot: loading workspace default ${candidate.path} (${candidate.fallbackReason})`
+            );
+        }
+
+        // 実際に読む path が変更された場合、ファイルウォッチャーを更新
+        if (candidate.path !== this.currentConfigPath) {
+            this.setupFileWatcher(candidate.path);
+            this.currentConfigPath = candidate.path;
+        }
+
         try {
-            const uri = vscode.Uri.file(configPath);
+            const uri = vscode.Uri.file(candidate.path);
             const content = await vscode.workspace.fs.readFile(uri);
             const text = new TextDecoder().decode(content);
 
             this.config = parseMenuConfig(text);
             this._onConfigChanged.fire({
                 config: this.config,
-                error: globalMenuError
+                error: globalMenuError,
+                effectivePath: candidate.path,
+                fallbackReason: candidate.fallbackReason
             });
             if (globalMenuError) {
                 this.showGlobalMenuErrorNotification(globalMenuError);
@@ -222,14 +389,21 @@ export class ConfigManager implements vscode.Disposable {
             if (err.message.includes('ENOENT') || err.message.includes('FileNotFound')) {
                 this._onConfigChanged.fire({
                     config: null,
-                    error: globalMenuError || new Error(`Configuration file not found: ${configPath}`)
+                    error: globalMenuError || new Error(`Configuration file not found: ${candidate.path}`),
+                    effectivePath: candidate.path,
+                    fallbackReason: candidate.fallbackReason
                 });
                 if (globalMenuError) {
                     this.showGlobalMenuErrorNotification(globalMenuError);
                 }
             } else {
                 // パースエラーなどは通知
-                this._onConfigChanged.fire({ config: null, error: err });
+                this._onConfigChanged.fire({
+                    config: null,
+                    error: err,
+                    effectivePath: candidate.path,
+                    fallbackReason: candidate.fallbackReason
+                });
                 this.showErrorNotification(err);
                 if (globalMenuError) {
                     this.showGlobalMenuErrorNotification(globalMenuError);
@@ -306,7 +480,8 @@ export class ConfigManager implements vscode.Disposable {
 
         vscode.window.showErrorMessage(message, 'Open Settings').then(selection => {
             if (selection === 'Open Settings') {
-                const configPath = this.getConfigPath();
+                // fallback 中はエラーの発生源 (実際に読んだ file) を開く (#11437)
+                const configPath = this.getEffectiveConfigPath() ?? this.getConfigPath();
                 if (configPath) {
                     vscode.workspace.openTextDocument(configPath).then(doc => {
                         vscode.window.showTextDocument(doc);

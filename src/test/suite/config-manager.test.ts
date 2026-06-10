@@ -12,9 +12,11 @@ import * as assert from 'assert';
 import * as path from 'path';
 import {
     ConfigManager,
+    DEFAULT_CONFIG_RELATIVE_PATH,
     resolveUserTaskMenuPath,
     buildMenuConfigExport,
     detectGlobalMenuLabelOverlap,
+    selectConfigLoadCandidate,
 } from '../../config-manager';
 import { MenuItem, MenuConfig } from '../../types';
 
@@ -1611,5 +1613,125 @@ suite('ConfigPath Resolution Test Suite', () => {
 
             manager.dispose();
         });
+    });
+});
+
+/**
+ * configured path → load candidate 選定テスト (Redmine #11436 / #11437)
+ *
+ * v0.6.9 の User-level export が書く絶対 `taskPilot.configPath` が
+ * Dev Container / remote で到達不能なとき、workspace default
+ * `.vscode/task-menu.yaml` へ fallback する選定ロジックの regression test。
+ */
+suite('selectConfigLoadCandidate (#11436 / #11437)', () => {
+
+    const userAbsolute = '/Users/u/Library/Application Support/Code/User/task-menu.yaml';
+    const workspaceDefault = `/workspaces/project/${DEFAULT_CONFIG_RELATIVE_PATH}`;
+
+    test('unreachable absolute configPath + existing workspace default -> falls back to workspace default', () => {
+        const candidate = selectConfigLoadCandidate({
+            configuredPath: userAbsolute,
+            configuredIsAbsoluteSetting: true,
+            configuredReadable: false,
+            workspaceDefaultPath: workspaceDefault,
+            workspaceDefaultReadable: true
+        });
+
+        assert.strictEqual(candidate.path, workspaceDefault);
+        assert.strictEqual(candidate.source, 'workspace-default-fallback');
+        assert.ok(candidate.fallbackReason, 'fallbackReason must be set');
+        assert.ok(candidate.fallbackReason!.includes(userAbsolute),
+            `fallbackReason must name the unreachable configured path, got: ${candidate.fallbackReason}`);
+    });
+
+    test('unreachable absolute configPath + no workspace default -> keeps configured path (reports missing as before)', () => {
+        const candidate = selectConfigLoadCandidate({
+            configuredPath: userAbsolute,
+            configuredIsAbsoluteSetting: true,
+            configuredReadable: false,
+            workspaceDefaultPath: workspaceDefault,
+            workspaceDefaultReadable: false
+        });
+
+        assert.strictEqual(candidate.path, userAbsolute);
+        assert.strictEqual(candidate.source, 'configured');
+        assert.strictEqual(candidate.fallbackReason, undefined);
+    });
+
+    test('unreachable absolute configPath + no workspace folder -> keeps configured path', () => {
+        const candidate = selectConfigLoadCandidate({
+            configuredPath: userAbsolute,
+            configuredIsAbsoluteSetting: true,
+            configuredReadable: false,
+            workspaceDefaultPath: null,
+            workspaceDefaultReadable: false
+        });
+
+        assert.strictEqual(candidate.path, userAbsolute);
+        assert.strictEqual(candidate.source, 'configured');
+    });
+
+    test('readable absolute custom path -> remains preferred even when workspace default exists', () => {
+        const customAbsolute = '/custom/path/config.yaml';
+        const candidate = selectConfigLoadCandidate({
+            configuredPath: customAbsolute,
+            configuredIsAbsoluteSetting: true,
+            configuredReadable: true,
+            workspaceDefaultPath: workspaceDefault,
+            workspaceDefaultReadable: true
+        });
+
+        assert.strictEqual(candidate.path, customAbsolute);
+        assert.strictEqual(candidate.source, 'configured');
+        assert.strictEqual(candidate.fallbackReason, undefined);
+    });
+
+    test('relative configPath behavior is unchanged: no fallback even when unreadable', () => {
+        const resolvedRelative = '/workspaces/project/config/my-tasks.yaml';
+        const candidate = selectConfigLoadCandidate({
+            configuredPath: resolvedRelative,
+            configuredIsAbsoluteSetting: false,
+            configuredReadable: false,
+            workspaceDefaultPath: workspaceDefault,
+            workspaceDefaultReadable: true
+        });
+
+        assert.strictEqual(candidate.path, resolvedRelative);
+        assert.strictEqual(candidate.source, 'configured');
+        assert.strictEqual(candidate.fallbackReason, undefined);
+    });
+
+    test('relative default configPath behavior is unchanged when readable', () => {
+        const candidate = selectConfigLoadCandidate({
+            configuredPath: workspaceDefault,
+            configuredIsAbsoluteSetting: false,
+            configuredReadable: true,
+            workspaceDefaultPath: workspaceDefault,
+            workspaceDefaultReadable: true
+        });
+
+        assert.strictEqual(candidate.path, workspaceDefault);
+        assert.strictEqual(candidate.source, 'configured');
+    });
+
+    test('absolute configPath equal to workspace default does not fall back to itself', () => {
+        // 自分自身への "fallback" は意味がなく、unreadable な同一 path を
+        // readable と主張する矛盾入力でも configured 側の失敗として扱う。
+        const candidate = selectConfigLoadCandidate({
+            configuredPath: workspaceDefault,
+            configuredIsAbsoluteSetting: true,
+            configuredReadable: false,
+            workspaceDefaultPath: workspaceDefault,
+            workspaceDefaultReadable: true
+        });
+
+        assert.strictEqual(candidate.path, workspaceDefault);
+        assert.strictEqual(candidate.source, 'configured');
+    });
+
+    test('getEffectiveConfigPath returns null before any reload', () => {
+        const manager = new ConfigManager();
+        assert.strictEqual(manager.getEffectiveConfigPath(), null);
+        manager.dispose();
     });
 });

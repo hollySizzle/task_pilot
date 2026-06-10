@@ -71,6 +71,8 @@ menu:
 | `taskPilot.configPath` | Path to YAML config file | `.vscode/task-menu.yaml` |
 | `taskPilot.globalMenu` | Global menu items merged after workspace menu | `[]` |
 
+An absolute `taskPilot.configPath` (e.g. the User-level `task-menu.yaml` written by `TaskPilot: Export Workspace Menu to User task-menu.yaml`) is used as-is when readable. If it is **not readable from the current workspace** — typical in Dev Container / remote workspaces where the local User directory does not exist — and the workspace has a `.vscode/task-menu.yaml`, TaskPilot falls back to that workspace default instead of showing no menu. A readable custom absolute path always stays preferred, and relative paths are resolved against the workspace root as before.
+
 ### Global Menu
 
 `taskPilot.globalMenu` lets you define menu items in user settings and merge them into every workspace.
