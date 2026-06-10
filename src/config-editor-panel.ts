@@ -269,7 +269,10 @@ export class ConfigEditorPanel {
             return;
         }
 
-        const configPath = this._configManager.getConfigPath();
+        // fallback で workspace default を読んでいる場合は、その実際に読んだ
+        // file に保存する (#11437 review #54793)。configured path (到達不能な
+        // User-level 絶対パスかもしれない) へは書かない。
+        const configPath = this._configManager.getSaveTargetPath();
         if (!configPath) {
             vscode.window.showErrorMessage('TaskPilot: 設定ファイルのパスが見つかりません');
             return;

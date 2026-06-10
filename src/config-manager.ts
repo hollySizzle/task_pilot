@@ -263,6 +263,18 @@ export class ConfigManager implements vscode.Disposable {
     }
 
     /**
+     * 現在ロード中の config を保存すべき path を返す (#11437 review #54793)。
+     *
+     * fallback で workspace default を読んでいる間に Config Editor が
+     * configured path (到達不能な User-level 絶対パス) へ書くと、読んだ file と
+     * 別の場所へ保存してしまう。保存対象は「実際に読んだ file」を優先し、
+     * まだ一度も reload していない場合のみ configured path に従う。
+     */
+    getSaveTargetPath(): string | null {
+        return this.getEffectiveConfigPath() ?? this.getConfigPath();
+    }
+
+    /**
      * path が file として readable かを best-effort で判定する。
      * stat 失敗 (missing / 権限 / remote 非到達) は false。
      */
@@ -459,7 +471,9 @@ export class ConfigManager implements vscode.Disposable {
             this.config = null;
             this._onConfigChanged.fire({
                 config: null,
-                error: new Error('Configuration file was deleted')
+                error: new Error('Configuration file was deleted'),
+                effectivePath: this.currentCandidate?.path ?? null,
+                fallbackReason: this.currentCandidate?.fallbackReason
             });
         });
 

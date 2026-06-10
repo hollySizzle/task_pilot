@@ -1734,4 +1734,41 @@ suite('selectConfigLoadCandidate (#11436 / #11437)', () => {
         assert.strictEqual(manager.getEffectiveConfigPath(), null);
         manager.dispose();
     });
+
+    suite('getSaveTargetPath (review #54793)', () => {
+
+        test('prefers the effective fallback path over the configured path for saving', () => {
+            const manager = new ConfigManager();
+            // reload 済みで fallback が効いている状態を再現する
+            (manager as unknown as { currentCandidate: unknown }).currentCandidate = {
+                path: workspaceDefault,
+                source: 'workspace-default-fallback',
+                fallbackReason: `configured absolute taskPilot.configPath is not readable from this workspace: ${userAbsolute}`
+            };
+
+            assert.strictEqual(manager.getSaveTargetPath(), workspaceDefault,
+                'save target must be the file that was actually loaded, not the unreachable configured path');
+            manager.dispose();
+        });
+
+        test('prefers the effective configured path when no fallback occurred', () => {
+            const manager = new ConfigManager();
+            (manager as unknown as { currentCandidate: unknown }).currentCandidate = {
+                path: userAbsolute,
+                source: 'configured'
+            };
+
+            assert.strictEqual(manager.getSaveTargetPath(), userAbsolute);
+            manager.dispose();
+        });
+
+        test('falls back to getConfigPath before any reload', () => {
+            const manager = new ConfigManager();
+
+            assert.strictEqual(manager.getEffectiveConfigPath(), null);
+            assert.strictEqual(manager.getSaveTargetPath(), manager.getConfigPath(),
+                'before the first reload the save target follows the configured path');
+            manager.dispose();
+        });
+    });
 });
