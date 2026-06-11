@@ -388,13 +388,28 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
             return this._getEmptyStateHtml();
         }
 
+        const globalLabels = new Set(
+            this._configManager.getGlobalMenu().map(globalItem => globalItem.label)
+        );
+
         return items.map((item, index) => {
             const path = prefix ? `${prefix}.${index}` : `${index}`;
             const hasChildren = item.children && item.children.length > 0;
             const isExpanded = this._expandedItems.has(path);
             const icon = item.icon || (hasChildren ? '$(folder)' : '$(terminal)');
 
-            let html = `<div class="menu-item ${hasChildren ? 'category' : ''}" onclick="${hasChildren ? `toggle('${path}')` : `execute('${path}')`}">`;
+            // 右クリック (webview/context) 用の context (#11597)。
+            // taskPilotPromotable / taskPilotInGlobal は package.json の menu when 句で参照する。
+            // Remove は top-level の globalMenu 項目に限る (昇格・削除とも label 単位の操作のため)。
+            const contextJson = JSON.stringify({
+                webviewSection: 'menuItem',
+                taskPilotPath: path,
+                taskPilotPromotable: !this._configManager.containsRef(item),
+                taskPilotInGlobal: prefix === '' && globalLabels.has(item.label),
+                preventDefaultContextMenuItems: true
+            });
+
+            let html = `<div class="menu-item ${hasChildren ? 'category' : ''}" data-vscode-context="${this._escapeHtml(contextJson)}" onclick="${hasChildren ? `toggle('${path}')` : `execute('${path}')`}">`;
 
             if (hasChildren) {
                 const chevronIcon = isExpanded ? 'codicon-chevron-down' : 'codicon-chevron-right';

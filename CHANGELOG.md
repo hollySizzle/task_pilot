@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **The user-level `task-menu.yaml` layer introduced in 0.7.0 (#11467) was removed.** `taskPilot.globalMenu` (User settings) is now the single global menu layer (priority: workspace menu > `taskPilot.globalMenu`). Rationale: the file lived on the extension host, so Remote-SSH / Dev Container sessions resolved it per host instead of sharing one menu, and it was not covered by Settings Sync — `taskPilot.globalMenu` has neither problem. A leftover `task-menu.yaml` in the VS Code User directory is ignored. (#11597)
+- `TaskPilot: Export Workspace Menu to Global Menu (User Settings)` (formerly "…to User task-menu.yaml") now shows a multi-select QuickPick of the exportable top-level items and writes the selection directly into `taskPilot.globalMenu` — same-label items are replaced, new labels appended. The clipboard JSON step is gone, and the command still never touches `taskPilot.configPath` or the file system. (#11597)
+
+### Added
+- Right-click a sidebar menu item to **Promote to Global Menu** (writes the single item into `taskPilot.globalMenu`, replacing a same-label entry) or **Remove from Global Menu** (top-level global items only). Items containing `ref` cannot be promoted. (#11597)
+
 ## [0.7.0] - 2026-06-10
 
 ### Changed

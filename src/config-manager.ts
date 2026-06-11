@@ -106,26 +106,44 @@ export interface GlobalMenuExportResult {
 }
 
 /**
- * VS Code User ディレクトリ配下の共有 `task-menu.yaml` の絶対パスを解決する。
+ * export / promote した menu 項目を既存の `taskPilot.globalMenu` 値へ合成する。
  *
- * `globalStorageFsPath` には `ExtensionContext.globalStorageUri.fsPath`
- * (`<userData>/User/globalStorage/<ext-id>`) を渡す。2 階層上が User ディレクトリ
- * (`settings.json` と同じ場所) なので、そこに `task-menu.yaml` を置く。globalStorage
- * を基準にするため、stable / Insiders / VSCodium / portable / code-server いずれでも
- * 正しい User ディレクトリを得られ、`${userHome}` のような未展開変数を埋め込まない。
- * 入力が絶対パスなら返り値も常に絶対パスになる。
+ * 表示時の `mergeMenus` (workspace 優先) と逆で、書き込み時は incoming が
+ * 同じ top-level label の既存項目を**置き換える**。既存の位置は保ち、新規
+ * label は末尾に追加する。入力配列は変更しない。
  */
-export function resolveUserTaskMenuPath(globalStorageFsPath: string): string {
-    const userDir = path.dirname(path.dirname(globalStorageFsPath));
-    return path.join(userDir, 'task-menu.yaml');
+export function mergeIntoGlobalMenu(existing: MenuItem[], incoming: MenuItem[]): MenuItem[] {
+    const merged = existing.map(item => ({ ...item }));
+
+    for (const incomingItem of incoming) {
+        const index = merged.findIndex(item => item.label === incomingItem.label);
+        if (index === -1) {
+            merged.push(incomingItem);
+        } else {
+            merged[index] = incomingItem;
+        }
+    }
+
+    return merged;
 }
 
 /**
- * export 済みの menu 配列を、User-level `task-menu.yaml` に書き出せる完全な
- * `MenuConfig` (`version: "1.0"` + `menu`) に包む。
+ * sidebar webview が使う `"0.2.1"` 形式の index path から menu 項目を解決する。
  */
-export function buildMenuConfigExport(menu: MenuItem[]): MenuConfig {
-    return { version: '1.0', menu };
+export function findMenuItemByPath(items: MenuItem[], menuPath: string): MenuItem | null {
+    let current: MenuItem[] = items;
+    let found: MenuItem | null = null;
+
+    for (const part of menuPath.split('.')) {
+        const index = parseInt(part, 10);
+        if (isNaN(index) || index < 0 || index >= current.length) {
+            return null;
+        }
+        found = current[index];
+        current = found.children ?? [];
+    }
+
+    return found;
 }
 
 /**
@@ -160,24 +178,12 @@ export class ConfigManager implements vscode.Disposable {
     private currentConfigPath: string | null = null;
     private currentCandidate: ConfigLoadCandidate | null = null;
 
-    /**
-     * User-level `task-menu.yaml` (export 先) から読み込んだ global レイヤー (#11467)。
-     * workspace menu の置き換えではなく、`taskPilot.globalMenu` と同じ merge
-     * 意味論 (workspace 優先) で全 workspace に合成される。
-     */
-    private userMenu: MenuItem[] = [];
-
-    /** User-level task-menu.yaml の絶対パス (未提供なら user レイヤーは無効) */
-    private readonly userTaskMenuPath: string | null;
-    private userFileWatcher: vscode.FileSystemWatcher | null = null;
-
     private readonly _onConfigChanged = new vscode.EventEmitter<ConfigChangeEvent>();
     public readonly onConfigChanged = this._onConfigChanged.event;
 
     private disposables: vscode.Disposable[] = [];
 
-    constructor(userTaskMenuPath?: string | null) {
-        this.userTaskMenuPath = userTaskMenuPath ?? null;
+    constructor() {
         this.disposables.push(this._onConfigChanged);
     }
 
@@ -235,20 +241,6 @@ export class ConfigManager implements vscode.Disposable {
             }
         });
         this.disposables.push(this.configWatcher);
-
-        // User-level task-menu.yaml の変更監視 (#11467)。workspace config の
-        // watcher とは独立に常設する (path は固定のため reload で張り替え不要)。
-        if (this.userTaskMenuPath) {
-            const pattern = new vscode.RelativePattern(
-                path.dirname(this.userTaskMenuPath),
-                path.basename(this.userTaskMenuPath)
-            );
-            this.userFileWatcher = vscode.workspace.createFileSystemWatcher(pattern);
-            this.userFileWatcher.onDidChange(() => this.reloadConfig());
-            this.userFileWatcher.onDidCreate(() => this.reloadConfig());
-            this.userFileWatcher.onDidDelete(() => this.reloadConfig());
-            this.disposables.push(this.userFileWatcher);
-        }
 
         // 初回読み込み
         await this.reloadConfig();
@@ -380,16 +372,6 @@ export class ConfigManager implements vscode.Disposable {
             globalMenuError = error instanceof Error ? error : new Error(String(error));
         }
 
-        // User-level task-menu.yaml を global レイヤーとして読み込む (#11467)。
-        // 失敗 (parse error 等) しても workspace config の読込は止めない。
-        try {
-            this.userMenu = await this.loadUserMenu();
-        } catch (error) {
-            this.userMenu = [];
-            const err = error instanceof Error ? error : new Error(String(error));
-            this.showUserMenuErrorNotification(err);
-        }
-
         if (!configPath) {
             this.currentCandidate = null;
             if (this.currentConfigPath !== null) {
@@ -466,53 +448,6 @@ export class ConfigManager implements vscode.Disposable {
                 }
             }
         }
-    }
-
-    /**
-     * User-level task-menu.yaml を読み込む (#11467)。
-     *
-     * - ファイルが無い / path 未提供なら空 (エラーではない)。
-     * - `ref` は workspace config の `commands` を前提とするため user レイヤーでは
-     *   サポートしない。含む top-level item は export 時と同じ規則で skip する。
-     * - parse / validation エラーは throw し、呼び出し側で通知する。
-     */
-    private async loadUserMenu(): Promise<MenuItem[]> {
-        if (!this.userTaskMenuPath) {
-            return [];
-        }
-        if (!(await this.isReadableFile(this.userTaskMenuPath))) {
-            return [];
-        }
-
-        const content = await vscode.workspace.fs.readFile(vscode.Uri.file(this.userTaskMenuPath));
-        const parsed = parseMenuConfig(new TextDecoder().decode(content));
-
-        return parsed.menu.filter(item => {
-            if (this.containsRef(item)) {
-                console.warn(
-                    `TaskPilot: skipping user task-menu item "${item.label}" (ref is not supported in the user-level menu)`
-                );
-                return false;
-            }
-            return true;
-        });
-    }
-
-    /**
-     * User-level task-menu.yaml のエラー通知を表示 (#11467)
-     */
-    private showUserMenuErrorNotification(error: Error): void {
-        const openConfigFile = vscode.l10n.t('Open Config File');
-        vscode.window.showErrorMessage(
-            `TaskPilot: User task-menu.yaml error: ${error.message}`,
-            openConfigFile
-        ).then(selection => {
-            if (selection === openConfigFile && this.userTaskMenuPath) {
-                vscode.workspace.openTextDocument(this.userTaskMenuPath).then(doc => {
-                    vscode.window.showTextDocument(doc);
-                });
-            }
-        });
     }
 
     /**
@@ -618,30 +553,28 @@ export class ConfigManager implements vscode.Disposable {
     /**
      * 現在の設定を取得（グローバルメニューをマージ済み）
      *
-     * 優先順位 (#11467): workspace menu > User-level task-menu.yaml > globalMenu。
-     * user file と globalMenu はまず合成され (user file 優先)、その global
-     * レイヤーが workspace menu に負ける形で merge される。
+     * 優先順位 (#11597): workspace menu > taskPilot.globalMenu。
+     * 同 label は workspace 側が勝つ。
      */
     getConfig(): MenuConfig | null {
-        // user file 優先で global レイヤーを合成
-        const layeredGlobal = this.mergeMenus(this.userMenu, this.getGlobalMenu());
+        const globalMenu = this.getGlobalMenu();
 
         // ワークスペース設定がない場合
         if (!this.config) {
-            // global レイヤーがあれば仮想的なMenuConfigを返す
-            if (layeredGlobal.length > 0) {
+            // globalMenu があれば仮想的なMenuConfigを返す
+            if (globalMenu.length > 0) {
                 return {
                     version: '1.0',
-                    menu: layeredGlobal
+                    menu: globalMenu
                 };
             }
             return null;
         }
 
-        // ワークスペース設定と global レイヤーをマージ
+        // ワークスペース設定と globalMenu をマージ
         return {
             ...this.config,
-            menu: this.mergeMenus(this.config.menu, layeredGlobal)
+            menu: this.mergeMenus(this.config.menu, globalMenu)
         };
     }
 
@@ -860,7 +793,12 @@ export class ConfigManager implements vscode.Disposable {
         return resolved.length > 0 ? resolved : null;
     }
 
-    private containsRef(item: MenuItem): boolean {
+    /**
+     * item 自身または子孫が `ref` 参照を含むかを判定する。
+     * `ref` は workspace config の `commands` を前提とするため、globalMenu への
+     * export / promote 対象にできない (#11597)。
+     */
+    containsRef(item: MenuItem): boolean {
         if (item.ref) {
             return true;
         }

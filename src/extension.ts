@@ -6,17 +6,17 @@
 import * as vscode from 'vscode';
 import {
     ConfigManager,
-    resolveUserTaskMenuPath,
-    buildMenuConfigExport,
     detectGlobalMenuLabelOverlap,
+    findMenuItemByPath,
+    mergeIntoGlobalMenu,
 } from './config-manager';
-import { generateYaml } from './yaml-generator';
+import { validateGlobalMenu } from './yaml-parser';
 import { ActionExecutor } from './action-executor';
 import { QuickPickMenu } from './quick-pick-menu';
 import { SidebarViewProvider } from './sidebar-view-provider';
 import { ConfigEditorPanel } from './config-editor-panel';
 import { generateSampleConfig, setExtensionPath } from './sample-generator';
-import { MenuConfig } from './types';
+import { MenuConfig, MenuItem } from './types';
 
 /** ConfigManager インスタンス */
 let configManager: ConfigManager | undefined;
@@ -37,8 +37,7 @@ export function activate(context: vscode.ExtensionContext): void {
     setExtensionPath(context.extensionPath);
 
     // Initialize ConfigManager
-    // User-level task-menu.yaml (export 先) を global レイヤーとして読ませる (#11467)
-    configManager = new ConfigManager(resolveUserTaskMenuPath(context.globalStorageUri.fsPath));
+    configManager = new ConfigManager();
     context.subscriptions.push(configManager);
 
     // Initialize ActionExecutor
@@ -164,10 +163,10 @@ export function activate(context: vscode.ExtensionContext): void {
     // Register exportGlobalMenu command
     // configOverride を渡すと、保存済み workspace YAML ではなくその config を export 元にする。
     // Config Editor は未保存編集を含む `_currentConfig` を渡すことで、stale な export が
-    // 出るのを防ぐ。export は User-level `task-menu.yaml` を書き出す。このファイルは
-    // ConfigManager が merge される global レイヤーとして読む (#11467) ため、
-    // `taskPilot.configPath` はもう変更しない (workspace menu を乗っ取らない)。
-    // options.force は上書き確認を skip する (テスト・自動化用)。
+    // 出るのを防ぐ。export 先は `taskPilot.globalMenu` (User settings) であり、
+    // QuickPick で選んだ top-level 項目を label 単位で merge 書き込みする (#11597)。
+    // `taskPilot.configPath` とファイルシステムには一切触れない (#11467 の回帰防止)。
+    // options.force は QuickPick を skip して全 exportable 項目を書く (テスト・自動化用)。
     const exportGlobalMenuCommand = vscode.commands.registerCommand(
         'taskPilot.exportGlobalMenu',
         async (configOverride?: MenuConfig, options?: { force?: boolean }) => {
@@ -193,89 +192,188 @@ export function activate(context: vscode.ExtensionContext): void {
             return;
         }
 
-        const userYamlPath = resolveUserTaskMenuPath(context.globalStorageUri.fsPath);
-        const yaml = generateYaml(buildMenuConfigExport(exportResult.menu));
-        const fileUri = vscode.Uri.file(userYamlPath);
-
-        // 既存ファイルの無警告上書きを防ぐ (#11467)
-        if (!options?.force) {
-            let exists = false;
-            try {
-                await vscode.workspace.fs.stat(fileUri);
-                exists = true;
-            } catch {
-                // missing — 確認不要
-            }
-            if (exists) {
-                const overwrite = vscode.l10n.t('Overwrite');
-                const answer = await vscode.window.showWarningMessage(
-                    vscode.l10n.t('{0} already exists. Overwrite?', userYamlPath),
-                    { modal: true },
-                    overwrite
-                );
-                if (answer !== overwrite) {
-                    return;
-                }
-            }
-        }
-
-        try {
-            await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(fileUri, '..'));
-            await vscode.workspace.fs.writeFile(fileUri, Buffer.from(yaml, 'utf8'));
-
-            // v0.6.9 の export が User settings に書いた configPath の残骸を掃除する
-            // (#11467)。export という明示操作の一部としてのみ行い、起動時には触らない。
-            const config = vscode.workspace.getConfiguration('taskPilot');
-            if (config.inspect<string>('configPath')?.globalValue === userYamlPath) {
-                await config.update('configPath', undefined, vscode.ConfigurationTarget.Global);
-            }
-        } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            vscode.window.showErrorMessage(
-                `TaskPilot: Failed to write User-level task-menu.yaml (${message})`
-            );
+        const existingGlobal = readGlobalMenuSetting();
+        if (existingGlobal === null) {
             return;
         }
 
-        // 移行期の手動 paste 用に、従来どおり globalMenu JSON も clipboard へ残す。
-        await vscode.env.clipboard.writeText(JSON.stringify(exportResult.menu, null, 2));
+        let selected = exportResult.menu;
+        if (!options?.force) {
+            const existingLabels = new Set(existingGlobal.map(item => item.label));
+            const picks = exportResult.menu.map(item => ({
+                label: item.label,
+                description: existingLabels.has(item.label)
+                    ? vscode.l10n.t('replaces the existing global item')
+                    : undefined,
+                detail: item.description,
+                picked: true,
+                item
+            }));
+            const chosen = await vscode.window.showQuickPick(picks, {
+                canPickMany: true,
+                placeHolder: vscode.l10n.t('Select menu items to export to taskPilot.globalMenu (User settings)')
+            });
+            if (!chosen || chosen.length === 0) {
+                return;
+            }
+            selected = chosen.map(pick => pick.item);
+        }
 
-        const overlap = detectGlobalMenuLabelOverlap(exportResult.menu, configManager.getGlobalMenu());
+        const replaced = detectGlobalMenuLabelOverlap(selected, existingGlobal);
+        try {
+            await vscode.workspace.getConfiguration('taskPilot').update(
+                'globalMenu',
+                mergeIntoGlobalMenu(existingGlobal, selected),
+                vscode.ConfigurationTarget.Global
+            );
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            vscode.window.showErrorMessage(`TaskPilot: Failed to update taskPilot.globalMenu (${message})`);
+            return;
+        }
+
         const skippedMessage = exportResult.skipped.length > 0
             ? ` Skipped ${exportResult.skipped.length} top-level item(s) containing ref.`
             : '';
-        const overlapMessage = overlap.length > 0
-            ? ` Existing taskPilot.globalMenu has same-label item(s) [${overlap.join(', ')}] that may duplicate/shadow this menu; remove or rename them.`
+        const replacedMessage = replaced.length > 0
+            ? ` Replaced same-label item(s): ${replaced.join(', ')}.`
             : '';
-
-        // Default success action opens the exported file. Offer the legacy
-        // globalMenu surface only when there is overlap to clean up, so users
-        // are not steered back to the deprecated migration workflow
-        // (Redmine #11410 review #54647).
-        const OPEN_EXPORTED_FILE = vscode.l10n.t('Open Exported File');
-        const OPEN_GLOBAL_MENU = 'Open globalMenu';
-        const actions = overlap.length > 0
-            ? [OPEN_EXPORTED_FILE, OPEN_GLOBAL_MENU]
-            : [OPEN_EXPORTED_FILE];
 
         // 通知の action 選択を command の完了条件にしない (#11459)。await すると
         // 通知が閉じられるまで command promise が解決せず、呼び出し側 (テスト・
         // 他 command からの実行) が hang する。
+        const OPEN_SETTINGS = vscode.l10n.t('Open Settings');
         void vscode.window.showInformationMessage(
-            `TaskPilot: Wrote ${userYamlPath}. It is merged into every workspace as the user-level menu (workspace items win).${skippedMessage}${overlapMessage}`,
-            ...actions
+            `TaskPilot: Exported ${selected.length} item(s) to taskPilot.globalMenu (User settings). They are merged into every workspace (workspace items win).${replacedMessage}${skippedMessage}`,
+            OPEN_SETTINGS
         ).then(action => {
-            if (action === OPEN_EXPORTED_FILE) {
-                void vscode.workspace.openTextDocument(userYamlPath).then(doc => {
-                    void vscode.window.showTextDocument(doc);
-                });
-            } else if (action === OPEN_GLOBAL_MENU) {
+            if (action === OPEN_SETTINGS) {
                 void vscode.commands.executeCommand('taskPilot.openGlobalSettings');
             }
         });
     });
 
     context.subscriptions.push(exportGlobalMenuCommand);
+
+    // sidebar webview の右クリック (webview/context) から1項目だけ globalMenu へ
+    // 昇格する (#11597)。webview HTML 側の data-vscode-context が引数になる。
+    const promoteCommand = vscode.commands.registerCommand(
+        'taskPilot.promoteToGlobalMenu',
+        async (ctx?: { taskPilotPath?: string }) => {
+        if (!configManager || !ctx?.taskPilotPath) {
+            return;
+        }
+
+        const config = configManager.getConfig();
+        const item = config ? findMenuItemByPath(config.menu, ctx.taskPilotPath) : null;
+        if (!item) {
+            vscode.window.showErrorMessage(`TaskPilot: ${vscode.l10n.t('Menu item not found')}`);
+            return;
+        }
+
+        if (configManager.containsRef(item)) {
+            vscode.window.showWarningMessage(
+                `TaskPilot: ${vscode.l10n.t('"{0}" contains a ref and cannot be promoted to the global menu', item.label)}`
+            );
+            return;
+        }
+
+        const existingGlobal = readGlobalMenuSetting();
+        if (existingGlobal === null) {
+            return;
+        }
+
+        try {
+            await vscode.workspace.getConfiguration('taskPilot').update(
+                'globalMenu',
+                mergeIntoGlobalMenu(existingGlobal, [item]),
+                vscode.ConfigurationTarget.Global
+            );
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            vscode.window.showErrorMessage(`TaskPilot: Failed to update taskPilot.globalMenu (${message})`);
+            return;
+        }
+
+        vscode.window.showInformationMessage(
+            `TaskPilot: ${vscode.l10n.t('Promoted "{0}" to taskPilot.globalMenu (User settings)', item.label)}`
+        );
+    });
+
+    context.subscriptions.push(promoteCommand);
+
+    // globalMenu 由来の top-level 項目を右クリックから取り除く (#11597)。
+    const removeFromGlobalCommand = vscode.commands.registerCommand(
+        'taskPilot.removeFromGlobalMenu',
+        async (ctx?: { taskPilotPath?: string }) => {
+        if (!configManager || !ctx?.taskPilotPath) {
+            return;
+        }
+
+        const config = configManager.getConfig();
+        const item = config ? findMenuItemByPath(config.menu, ctx.taskPilotPath) : null;
+        if (!item) {
+            vscode.window.showErrorMessage(`TaskPilot: ${vscode.l10n.t('Menu item not found')}`);
+            return;
+        }
+
+        const existingGlobal = readGlobalMenuSetting();
+        if (existingGlobal === null) {
+            return;
+        }
+
+        const next = existingGlobal.filter(globalItem => globalItem.label !== item.label);
+        if (next.length === existingGlobal.length) {
+            vscode.window.showInformationMessage(
+                `TaskPilot: ${vscode.l10n.t('"{0}" is not in taskPilot.globalMenu (User settings)', item.label)}`
+            );
+            return;
+        }
+
+        try {
+            await vscode.workspace.getConfiguration('taskPilot').update(
+                'globalMenu',
+                next,
+                vscode.ConfigurationTarget.Global
+            );
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            vscode.window.showErrorMessage(`TaskPilot: Failed to update taskPilot.globalMenu (${message})`);
+            return;
+        }
+
+        vscode.window.showInformationMessage(
+            `TaskPilot: ${vscode.l10n.t('Removed "{0}" from taskPilot.globalMenu (User settings)', item.label)}`
+        );
+    });
+
+    context.subscriptions.push(removeFromGlobalCommand);
+}
+
+/**
+ * User settings (Global scope) の `taskPilot.globalMenu` 値を読み・検証する。
+ *
+ * `get()` は workspace 設定なども合成した値を返すため使わない — Global へ
+ * 書き戻す前提では、他 scope の値を User settings へ複製してしまう。
+ * 検証エラー時は通知を出して null を返す (呼び出し側は中断する)。
+ */
+function readGlobalMenuSetting(): MenuItem[] | null {
+    const raw = vscode.workspace.getConfiguration('taskPilot')
+        .inspect<unknown>('globalMenu')?.globalValue ?? [];
+    const { result, menu } = validateGlobalMenu(raw);
+    if (!result.valid || !menu) {
+        const openSettings = vscode.l10n.t('Open Settings');
+        void vscode.window.showErrorMessage(
+            `TaskPilot: ${vscode.l10n.t('Existing taskPilot.globalMenu is invalid; fix it before exporting')}`,
+            openSettings
+        ).then(selection => {
+            if (selection === openSettings) {
+                void vscode.commands.executeCommand('taskPilot.openGlobalSettings');
+            }
+        });
+        return null;
+    }
+    return menu;
 }
 
 /**

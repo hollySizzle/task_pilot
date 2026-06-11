@@ -45,7 +45,10 @@ suite('SidebarViewProvider Test Suite', () => {
                     }
                 ]
             }),
-            onConfigChanged: () => ({ dispose: () => {} })
+            onConfigChanged: () => ({ dispose: () => {} }),
+            // 右クリック昇格 (#11597) の context 生成で参照される
+            getGlobalMenu: () => [],
+            containsRef: () => false
         };
 
         // モックActionExecutor
@@ -159,6 +162,69 @@ suite('SidebarViewProvider Test Suite', () => {
             html.includes('No menu items') || html.includes('empty') || html.length === 0 || html.includes('設定'),
             'Should handle empty menu'
         );
+    });
+
+    suite('webview/context data attributes (#11597)', () => {
+
+        test('menu items carry data-vscode-context with path and promotion flags', async () => {
+            const { SidebarViewProvider } = await import('../../sidebar-view-provider');
+            const provider = new SidebarViewProvider(
+                mockContext.extensionUri,
+                mockConfigManager,
+                mockActionExecutor
+            );
+
+            const config = mockConfigManager.getConfig();
+            const html = provider.getMenuItemsHtml(config.menu);
+
+            assert.ok(html.includes('data-vscode-context='), 'items should carry data-vscode-context');
+            assert.ok(html.includes('&quot;webviewSection&quot;:&quot;menuItem&quot;'),
+                'context should declare the menuItem webview section');
+            assert.ok(html.includes('&quot;taskPilotPath&quot;:&quot;0&quot;'),
+                'top-level item should carry its index path');
+            assert.ok(html.includes('&quot;taskPilotPromotable&quot;:true'),
+                'ref-free items should be promotable');
+        });
+
+        test('taskPilotInGlobal is true only for top-level items present in globalMenu', async () => {
+            const { SidebarViewProvider } = await import('../../sidebar-view-provider');
+            const manager = {
+                ...mockConfigManager,
+                getGlobalMenu: () => [{ label: 'Direct Command', type: 'terminal', command: 'npm test' }]
+            };
+            const provider = new SidebarViewProvider(
+                mockContext.extensionUri,
+                manager,
+                mockActionExecutor
+            );
+
+            const config = mockConfigManager.getConfig();
+            const html = provider.getMenuItemsHtml(config.menu);
+
+            assert.ok(html.includes('&quot;taskPilotInGlobal&quot;:true'),
+                'the globalMenu-backed top-level item should be removable');
+            assert.ok(html.includes('&quot;taskPilotInGlobal&quot;:false'),
+                'items absent from globalMenu should not be removable');
+        });
+
+        test('ref-containing items are marked non-promotable', async () => {
+            const { SidebarViewProvider } = await import('../../sidebar-view-provider');
+            const manager = {
+                ...mockConfigManager,
+                containsRef: (item: { label: string }) => item.label === 'Test Category'
+            };
+            const provider = new SidebarViewProvider(
+                mockContext.extensionUri,
+                manager,
+                mockActionExecutor
+            );
+
+            const config = mockConfigManager.getConfig();
+            const html = provider.getMenuItemsHtml(config.menu);
+
+            assert.ok(html.includes('&quot;taskPilotPromotable&quot;:false'),
+                'ref-containing items must not be promotable');
+        });
     });
 
     suite('config source footer (#11465)', () => {

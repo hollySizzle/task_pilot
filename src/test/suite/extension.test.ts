@@ -128,10 +128,11 @@ suite('Extension Integration Test Suite', () => {
         assert.ok(true, 'refreshSidebar resolved through the reload path');
     });
 
-    test('exportGlobalMenu should accept a configOverride argument (Config Editor未保存対応)', async function() {
-        // Config Editor は未保存編集を含む `_currentConfig` を command に渡すことで
-        // clipboard に stale な JSON が出るのを防ぐ。command 側がその override を
-        // 受け取って source として使うことを固定する。
+    test('exportGlobalMenu writes the override menu into taskPilot.globalMenu (User settings) (#11597)', async function() {
+        // Config Editor は未保存編集を含む `_currentConfig` を command に渡す。
+        // export は QuickPick selection を経て `taskPilot.globalMenu` (Global scope)
+        // へ merge 書き込みする。force は QuickPick を skip して全 exportable 項目を
+        // 書く (テスト・自動化用)。
         this.timeout(5000);
 
         const editingConfig = {
@@ -145,35 +146,34 @@ suite('Extension Integration Test Suite', () => {
             ]
         };
 
-        const before = await vscode.env.clipboard.readText();
+        const config = () => vscode.workspace.getConfiguration('taskPilot');
         try {
-            // force: 既存ファイルがあるときの上書き確認 modal はテストでは応答
-            // できないため skip する (#11467)
             await vscode.commands.executeCommand('taskPilot.exportGlobalMenu', editingConfig, { force: true });
-            const after = await vscode.env.clipboard.readText();
 
-            // 受け取った clipboard JSON に override の項目が出ていれば override 経路が使われている。
-            assert.notStrictEqual(after, before, 'clipboard should be updated by export command');
-            const parsed = JSON.parse(after);
-            assert.ok(Array.isArray(parsed), 'clipboard should contain a JSON array');
+            const globalValue = config().inspect<Array<{ label?: string }>>('globalMenu')?.globalValue;
+            assert.ok(Array.isArray(globalValue), 'export should write an array into the Global scope');
             assert.ok(
-                parsed.some((item: { label?: string }) => item.label === 'Unsaved Export Probe'),
+                globalValue!.some(item => item.label === 'Unsaved Export Probe'),
                 'export should include the override-only item, proving _currentConfig was used'
             );
 
-            // #11467: export は configPath を乗っ取らない
-            const inspected = vscode.workspace
-                .getConfiguration('taskPilot')
-                .inspect<string>('configPath');
+            // #11467/#11597: export は configPath とファイルシステムに触れない
+            const inspected = config().inspect<string>('configPath');
             assert.strictEqual(inspected?.globalValue, undefined,
                 'export must not write taskPilot.configPath into User settings');
         } finally {
-            await vscode.env.clipboard.writeText(before);
-            // 防御的 cleanup: 仕様変更後 export は configPath を書かないが、
-            // 万一書かれた場合に次 run を汚染させない (#11459 [事実] C)。
-            await vscode.workspace
-                .getConfiguration('taskPilot')
-                .update('configPath', undefined, vscode.ConfigurationTarget.Global);
+            await config().update('globalMenu', undefined, vscode.ConfigurationTarget.Global);
+            // 防御的 cleanup: export は configPath を書かないが、万一書かれた場合に
+            // 次 run を汚染させない (#11459 [事実] C)。
+            await config().update('configPath', undefined, vscode.ConfigurationTarget.Global);
         }
+    });
+
+    test('promoteToGlobalMenu and removeFromGlobalMenu commands should be registered (#11597)', async () => {
+        const commands = await vscode.commands.getCommands(true);
+        assert.ok(commands.includes('taskPilot.promoteToGlobalMenu'),
+            'taskPilot.promoteToGlobalMenu command should be registered');
+        assert.ok(commands.includes('taskPilot.removeFromGlobalMenu'),
+            'taskPilot.removeFromGlobalMenu command should be registered');
     });
 });

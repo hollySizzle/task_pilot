@@ -90,6 +90,14 @@
         "icon": "$(export)"
       },
       {
+        "command": "taskPilot.promoteToGlobalMenu",
+        "title": "%commands.promoteToGlobalMenu.title%"
+      },
+      {
+        "command": "taskPilot.removeFromGlobalMenu",
+        "title": "%commands.removeFromGlobalMenu.title%"
+      },
+      {
         "command": "taskPilot.testDevContainer",
         "title": "TaskPilot: Test DevContainer (Debug)"
       }
@@ -365,6 +373,28 @@
           "command": "taskPilot.exportGlobalMenu",
           "when": "view == taskPilot.sidebarView",
           "group": "navigation"
+        }
+      ],
+      "webview/context": [
+        {
+          "command": "taskPilot.promoteToGlobalMenu",
+          "when": "webviewId == 'taskPilot.sidebarView' && webviewSection == 'menuItem' && taskPilotPromotable",
+          "group": "taskPilot@1"
+        },
+        {
+          "command": "taskPilot.removeFromGlobalMenu",
+          "when": "webviewId == 'taskPilot.sidebarView' && webviewSection == 'menuItem' && taskPilotInGlobal",
+          "group": "taskPilot@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "taskPilot.promoteToGlobalMenu",
+          "when": "false"
+        },
+        {
+          "command": "taskPilot.removeFromGlobalMenu",
+          "when": "false"
         }
       ]
     },

@@ -14,9 +14,9 @@ import * as vscode from 'vscode';
 import {
     ConfigManager,
     DEFAULT_CONFIG_RELATIVE_PATH,
-    resolveUserTaskMenuPath,
-    buildMenuConfigExport,
     detectGlobalMenuLabelOverlap,
+    findMenuItemByPath,
+    mergeIntoGlobalMenu,
     selectConfigLoadCandidate,
 } from '../../config-manager';
 import { MenuItem, MenuConfig } from '../../types';
@@ -1364,57 +1364,95 @@ suite('Global Menu Test Suite', () => {
 });
 
 /**
- * User-level export helpers (Redmine #11409 / #11410)
+ * globalMenu export / promote helpers (Redmine #11597)
  *
- * exportGlobalMenu の User-level YAML + configPath 自動設定で使う pure helper のテスト。
+ * exportGlobalMenu / promoteToGlobalMenu が `taskPilot.globalMenu` へ
+ * 直接書き込む際に使う pure helper のテスト。
  */
-suite('User-level export helpers', () => {
+suite('globalMenu export helpers', () => {
 
-    suite('resolveUserTaskMenuPath', () => {
+    suite('mergeIntoGlobalMenu', () => {
 
-        test('derives <User>/task-menu.yaml from the globalStorage path', () => {
-            const globalStorage = path.join(
-                path.sep === '\\' ? 'C:\\Users\\u\\AppData\\Roaming\\Code' : '/Users/u/Library/Application Support/Code',
-                'User',
-                'globalStorage',
-                'pub.taskpilot'
-            );
+        test('replaces the existing item with the same top-level label in place', () => {
+            const existing: MenuItem[] = [
+                { label: 'Build', type: 'terminal', command: 'old build' },
+                { label: 'Lint', type: 'terminal', command: 'npm run lint' }
+            ];
+            const incoming: MenuItem[] = [
+                { label: 'Build', type: 'terminal', command: 'new build' }
+            ];
 
-            const result = resolveUserTaskMenuPath(globalStorage);
+            const merged = mergeIntoGlobalMenu(existing, incoming);
 
-            const expected = path.join(path.dirname(path.dirname(globalStorage)), 'task-menu.yaml');
-            assert.strictEqual(result, expected);
-            assert.ok(result.endsWith(`User${path.sep}task-menu.yaml`),
-                `expected User-level task-menu.yaml, got ${result}`);
+            assert.deepStrictEqual(merged.map(item => item.label), ['Build', 'Lint'],
+                'replacement must keep the existing position');
+            assert.strictEqual(merged[0].command, 'new build');
         });
 
-        test('returns an absolute path with no unexpanded variables (configPath safety)', () => {
-            const globalStorage = '/Users/u/Library/Application Support/Code/User/globalStorage/pub.taskpilot';
+        test('appends items with new labels at the end', () => {
+            const existing: MenuItem[] = [
+                { label: 'Build', type: 'terminal', command: 'npm run build' }
+            ];
+            const incoming: MenuItem[] = [
+                { label: 'Deploy', type: 'terminal', command: 'npm run deploy' }
+            ];
 
-            const result = resolveUserTaskMenuPath(globalStorage);
+            const merged = mergeIntoGlobalMenu(existing, incoming);
 
-            assert.ok(path.isAbsolute(result), `configPath must be absolute, got ${result}`);
-            assert.ok(!result.includes('${'), `configPath must not contain unexpanded variables, got ${result}`);
+            assert.deepStrictEqual(merged.map(item => item.label), ['Build', 'Deploy']);
+        });
+
+        test('does not mutate the input arrays', () => {
+            const existing: MenuItem[] = [
+                { label: 'Build', type: 'terminal', command: 'old build' }
+            ];
+            const incoming: MenuItem[] = [
+                { label: 'Build', type: 'terminal', command: 'new build' }
+            ];
+
+            mergeIntoGlobalMenu(existing, incoming);
+
+            assert.strictEqual(existing[0].command, 'old build');
+        });
+
+        test('handles an empty existing menu', () => {
+            const incoming: MenuItem[] = [
+                { label: 'Build', type: 'terminal', command: 'npm run build' }
+            ];
+            assert.deepStrictEqual(mergeIntoGlobalMenu([], incoming), incoming);
         });
     });
 
-    suite('buildMenuConfigExport', () => {
+    suite('findMenuItemByPath', () => {
 
-        test('wraps a menu array into a version 1.0 MenuConfig', () => {
-            const menu: MenuItem[] = [
-                { label: 'Build', type: 'terminal', command: 'npm run build' }
-            ];
+        const menu: MenuItem[] = [
+            {
+                label: 'Dev',
+                children: [
+                    { label: 'Build', type: 'terminal', command: 'npm run build' },
+                    {
+                        label: 'Test',
+                        children: [
+                            { label: 'Unit', type: 'terminal', command: 'npm test' }
+                        ]
+                    }
+                ]
+            },
+            { label: 'Status', type: 'terminal', command: 'git status' }
+        ];
 
-            const config = buildMenuConfigExport(menu);
-
-            assert.strictEqual(config.version, '1.0');
-            assert.deepStrictEqual(config.menu, menu);
+        test('resolves a top-level item', () => {
+            assert.strictEqual(findMenuItemByPath(menu, '1')?.label, 'Status');
         });
 
-        test('preserves an empty menu', () => {
-            const config = buildMenuConfigExport([]);
-            assert.strictEqual(config.version, '1.0');
-            assert.deepStrictEqual(config.menu, []);
+        test('resolves a nested item by dotted index path', () => {
+            assert.strictEqual(findMenuItemByPath(menu, '0.1.0')?.label, 'Unit');
+        });
+
+        test('returns null for an out-of-range or malformed path', () => {
+            assert.strictEqual(findMenuItemByPath(menu, '5'), null);
+            assert.strictEqual(findMenuItemByPath(menu, '0.9'), null);
+            assert.strictEqual(findMenuItemByPath(menu, 'x'), null);
         });
     });
 
@@ -1775,76 +1813,55 @@ suite('selectConfigLoadCandidate (#11436 / #11437)', () => {
 });
 
 /**
- * User-level task-menu.yaml レイヤーの merge 意味論テスト (Redmine #11467)
+ * globalMenu merge 意味論テスト (Redmine #11597)
  *
- * 優先順位: workspace menu > User-level task-menu.yaml > taskPilot.globalMenu。
- * user file は workspace menu の置き換えではなく merge される global レイヤー。
+ * 優先順位: workspace menu > taskPilot.globalMenu (2層)。#11467 の
+ * User-level task-menu.yaml レイヤーは #11597 で撤去された。
  */
-suite('user-level task-menu layer (#11467)', () => {
+suite('globalMenu merge layer (#11597)', () => {
 
     function buildManager(state: {
         workspaceMenu?: MenuItem[];
-        userMenu?: MenuItem[];
         globalMenu?: MenuItem[];
     }): ConfigManager {
         const manager = new ConfigManager();
         const internal = manager as unknown as {
             config: MenuConfig | null;
-            userMenu: MenuItem[];
             globalMenu: MenuItem[];
         };
         internal.config = state.workspaceMenu
             ? { version: '1.0', menu: state.workspaceMenu }
             : null;
-        internal.userMenu = state.userMenu ?? [];
         internal.globalMenu = state.globalMenu ?? [];
         return manager;
     }
 
     const wsItem: MenuItem = { label: 'Build', type: 'terminal', command: 'ws build' };
-    const userItem: MenuItem = { label: 'Build', type: 'terminal', command: 'user build' };
     const globalItem: MenuItem = { label: 'Build', type: 'terminal', command: 'global build' };
 
-    test('workspace menu wins over the user-level file on the same label', () => {
-        const manager = buildManager({ workspaceMenu: [wsItem], userMenu: [userItem] });
-        const config = manager.getConfig();
-        assert.strictEqual(config?.menu.length, 1);
-        assert.strictEqual(config!.menu[0].command, 'ws build');
-        manager.dispose();
-    });
-
-    test('user-level file wins over legacy globalMenu on the same label', () => {
-        const manager = buildManager({ userMenu: [userItem], globalMenu: [globalItem] });
-        const config = manager.getConfig();
-        assert.strictEqual(config?.menu.length, 1);
-        assert.strictEqual(config!.menu[0].command, 'user build');
-        manager.dispose();
-    });
-
-    test('all three layers merge with distinct labels preserved', () => {
-        const manager = buildManager({
-            workspaceMenu: [{ label: 'WS', type: 'terminal', command: 'a' }],
-            userMenu: [{ label: 'User', type: 'terminal', command: 'b' }],
-            globalMenu: [{ label: 'Global', type: 'terminal', command: 'c' }]
-        });
-        const config = manager.getConfig();
-        assert.deepStrictEqual(config?.menu.map(item => item.label), ['WS', 'User', 'Global']);
-        manager.dispose();
-    });
-
-    test('user-level file alone produces a virtual config without a workspace menu', () => {
-        const manager = buildManager({ userMenu: [userItem] });
-        const config = manager.getConfig();
-        assert.strictEqual(config?.menu.length, 1);
-        assert.strictEqual(config!.menu[0].command, 'user build');
-        manager.dispose();
-    });
-
-    test('no user file path keeps the legacy globalMenu behavior unchanged', () => {
+    test('workspace menu wins over globalMenu on the same label', () => {
         const manager = buildManager({ workspaceMenu: [wsItem], globalMenu: [globalItem] });
         const config = manager.getConfig();
         assert.strictEqual(config?.menu.length, 1);
         assert.strictEqual(config!.menu[0].command, 'ws build');
+        manager.dispose();
+    });
+
+    test('both layers merge with distinct labels preserved', () => {
+        const manager = buildManager({
+            workspaceMenu: [{ label: 'WS', type: 'terminal', command: 'a' }],
+            globalMenu: [{ label: 'Global', type: 'terminal', command: 'c' }]
+        });
+        const config = manager.getConfig();
+        assert.deepStrictEqual(config?.menu.map(item => item.label), ['WS', 'Global']);
+        manager.dispose();
+    });
+
+    test('globalMenu alone produces a virtual config without a workspace menu', () => {
+        const manager = buildManager({ globalMenu: [globalItem] });
+        const config = manager.getConfig();
+        assert.strictEqual(config?.menu.length, 1);
+        assert.strictEqual(config!.menu[0].command, 'global build');
         manager.dispose();
     });
 });
