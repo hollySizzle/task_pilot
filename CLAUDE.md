@@ -32,4 +32,23 @@ ClaudeCode 起動時に project-local で必ず思い出してほしい reminder
 Doc-readonly 領域、project 固有 role boundary override 等) をここに追記してください。
 マーカー外の内容は scaffold 再生成で上書きされます。
 -->
+
+### Codex Review 適用範囲 (owner 採択 2026-06-11, Redmine #11607)
+
+central preset の Review Gate を本 project では以下の範囲で運用する。
+
+```yaml
+codex_review_required:
+  - src/**
+  - package.json の contributes / engines / activationEvents
+  - schemas/**
+lightweight_gate:  # implementation_done + owner close approval のみで close 可
+  - docs / README / CHANGELOG のみの変更
+  - l10n 文言のみの変更
+  - CLAUDE.md 等ガードレールのみの変更
+共通:
+  - review 省略は per-issue journal に owner 指示を記録した場合に限る。省略をデフォルト化しない
+  - 軽量ゲートでも owner close approval journal は省略しない
+  - .github/workflows/** の扱いは未決 (現状は軽量側)。実害が出たら見直す
+```
 <!-- mozyo-bridge:project-local-additions:end -->
