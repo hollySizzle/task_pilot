@@ -42,6 +42,7 @@ codex_review_required:
   - src/**
   - package.json の contributes / engines / activationEvents
   - schemas/**
+  - .github/workflows/**  # 遡及レビューで publish.yml に High が出た実績による格上げ (owner 採択 2026-06-11, #11548 review #55769)
 lightweight_gate:  # implementation_done + owner close approval のみで close 可
   - docs / README / CHANGELOG のみの変更
   - l10n 文言のみの変更
@@ -49,6 +50,5 @@ lightweight_gate:  # implementation_done + owner close approval のみで close 
 共通:
   - review 省略は per-issue journal に owner 指示を記録した場合に限る。省略をデフォルト化しない
   - 軽量ゲートでも owner close approval journal は省略しない
-  - .github/workflows/** の扱いは未決 (現状は軽量側)。実害が出たら見直す
 ```
 <!-- mozyo-bridge:project-local-additions:end -->
