@@ -119,6 +119,7 @@
         },
         "taskPilot.globalMenu": {
           "type": "array",
+          "scope": "application",
           "default": [],
           "markdownDescription": "%configuration.globalMenu.description%",
           "items": {

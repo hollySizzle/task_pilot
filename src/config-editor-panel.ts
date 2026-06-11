@@ -238,8 +238,9 @@ export class ConfigEditorPanel {
 
             case 'exportGlobalMenu':
                 // editor 上の未保存編集を export 元に使う。
-                // command 引数を省略すると保存済み YAML が読まれて stale な JSON
-                // が clipboard に流れるため、必ず `_currentConfig` を渡す。
+                // command 引数を省略すると保存済み YAML が読まれ、未保存編集が
+                // QuickPick / globalMenu 書き込みに反映されないため、必ず
+                // `_currentConfig` を渡す。
                 await vscode.commands.executeCommand(
                     'taskPilot.exportGlobalMenu',
                     this._currentConfig

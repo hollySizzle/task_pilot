@@ -149,8 +149,8 @@ export function findMenuItemByPath(items: MenuItem[], menuPath: string): MenuIte
 /**
  * export 対象 menu と既存 `taskPilot.globalMenu` の top-level label 重複を返す。
  *
- * configPath 経由の User-level menu へ移行する際、同じ label が `globalMenu` に
- * 残っていると重複表示 / shadow になり得るため、移行ガイダンスのために検出する。
+ * export / promote の書き込みは同 label の既存項目を置き換えるため、QuickPick の
+ * 「replaces the existing global item」表示と書き込み後の置換報告に使う (#11597)。
  * 返り値は export 側の出現順で、重複なしの label 一覧。
  */
 export function detectGlobalMenuLabelOverlap(

@@ -80,7 +80,7 @@ Menus are layered with workspace priority:
 
 Items with the same `label` are taken from the higher-priority layer; colliding categories merge their children recursively with the same priority. The sidebar footer always shows which config file the workspace menu was loaded from.
 
-> Up to v0.7.0 a `task-menu.yaml` in the VS Code User directory was loaded as an additional user-level layer. That layer was removed in v0.8.0: it lived on the extension host, so in Remote-SSH / Dev Container sessions it resolved to a per-host file instead of one shared menu, and it was not covered by Settings Sync. `taskPilot.globalMenu` has neither problem. A leftover User-directory `task-menu.yaml` is simply ignored.
+> In v0.7.0 a `task-menu.yaml` in the VS Code User directory was loaded as an additional user-level layer. That layer has since been removed: it lived on the extension host, so in Remote-SSH / Dev Container sessions it resolved to a per-host file instead of one shared menu, and it was not covered by Settings Sync. `taskPilot.globalMenu` has neither problem. A leftover User-directory `task-menu.yaml` is simply ignored.
 
 ### Global Menu
 
@@ -127,7 +127,7 @@ Example:
 Use `TaskPilot: Export Workspace Menu to Global Menu (User Settings)` to share workspace menu items across all workspaces.
 
 - A QuickPick lists the exportable top-level items (all pre-selected); pick the ones to share
-- Items whose label already exists in `taskPilot.globalMenu` are marked and **replace** the existing global item; new labels are appended
+- Items whose label already exists in `taskPilot.globalMenu` are marked and **replace** the existing global item; new labels are appended. Replacement is whole-item: a category replaces the previous global entry including its entire `children` list (children that only existed in the old global entry are not merged back)
 - The selection is written directly into `taskPilot.globalMenu` in your User settings — no copy/paste step
 - The command never touches `taskPilot.configPath` or any file on disk
 - When invoked from the Config Editor's "Export Global Menu" button, the export uses the editor's current (possibly unsaved) state
@@ -137,7 +137,7 @@ Use `TaskPilot: Export Workspace Menu to Global Menu (User Settings)` to share w
 
 Right-click a menu item in the TaskPilot sidebar:
 
-- **Promote to Global Menu** writes that item into `taskPilot.globalMenu` as a top-level entry (replacing a same-label entry if one exists). Items containing `ref` cannot be promoted. The sidebar re-renders immediately.
+- **Promote to Global Menu** writes that item into `taskPilot.globalMenu` as a top-level entry (replacing a same-label entry if one exists). The item is captured exactly as displayed — for a merged category that includes the global-side children too. Items containing `ref` cannot be promoted. The sidebar re-renders immediately.
 - **Remove from Global Menu** (shown only for top-level items that exist in `taskPilot.globalMenu`) deletes the same-label entry from your User settings.
 
 This is the quickest way to iterate: test an item in the workspace `.vscode/task-menu.yaml`, then promote it once it works — no manual merging.
