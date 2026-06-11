@@ -39,6 +39,9 @@ jobs:
     # (event 種別を見ないと手動 dispatch on tag ref が publish 条件を満たす — #11548 review #55769)
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    # GITHUB_TOKEN で GitHub Release を作成するため (#11631)
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -57,3 +60,19 @@ jobs:
 
       - name: Publish to Marketplace
         run: npx @vscode/vsce publish -p ${{ secrets.VSCE_PAT }}
+
+      # publish 成功後に CHANGELOG の該当セクションで GitHub Release を作成する (#11631)。
+      # セクションが見つからない場合は run を fail させず警告 + placeholder にする
+      # (Marketplace へは出荷済みのため、ここで fail させると green な出荷が赤い run になる)。
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v ver="$VERSION" '$0 ~ "^## \\[" ver "\\]" {flag=1; next} /^## \[/ {flag=0} flag' CHANGELOG.md \
+            | sed -e '/./,$!d' > /tmp/release-notes.md
+          if [ ! -s /tmp/release-notes.md ]; then
+            echo "::warning::No CHANGELOG section found for ${VERSION}; using a placeholder note"
+            echo "See [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/main/CHANGELOG.md)." > /tmp/release-notes.md
+          fi
+          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file /tmp/release-notes.md --latest
