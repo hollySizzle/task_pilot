@@ -35,7 +35,9 @@ jobs:
 
   publish:
     needs: test
-    if: startsWith(github.ref, 'refs/tags/v')
+    # tag push のみ。workflow_dispatch は ref に tag を指定しても publish しない
+    # (event 種別を見ないと手動 dispatch on tag ref が publish 条件を満たす — #11548 review #55769)
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
